@@ -10,3 +10,5 @@ vendor/node/node-v*/
 .appimage-tools/
 .theme-*.log
 .appimage-shot*.png
+*.AppImage.sha256
+.appimage*.png
