@@ -23,6 +23,12 @@
 
 代价是：走的是**非官方内部接口**，随时可能因 DeepSeek 改版失效；也请只在自己的账号上使用。
 
+## 下载
+
+GitHub Releases 提供 Linux x86_64 AppImage：
+
+- https://github.com/keithubyte/tinywhale/releases/tag/v1.0.0
+
 ## 直接运行（免安装）
 
 ```bash
