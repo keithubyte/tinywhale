@@ -1,0 +1,12 @@
+.profile/
+.test/
+__pycache__/
+*.pyc
+dist/
+vendor/node/node
+vendor/node/node.tar.xz
+vendor/node/node-v*/
+*.AppImage
+.appimage-tools/
+.theme-*.log
+.appimage-shot*.png

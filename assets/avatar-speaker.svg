@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- 原创 Q 版默认头像：黑发、细框眼镜、蓝西装、白衬衫、宽肩，演讲者气场 -->
+  <defs>
+    <linearGradient id="skin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F2CDA8"/>
+      <stop offset="1" stop-color="#DFAC7F"/>
+    </linearGradient>
+    <linearGradient id="suit" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3763E8"/>
+      <stop offset="1" stop-color="#1E3E9E"/>
+    </linearGradient>
+    <linearGradient id="hair" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2A2B31"/>
+      <stop offset="1" stop-color="#0F1014"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 宽肩蓝西装 -->
+  <path d="M20 256 C24 206 64 180 128 180 C192 180 232 206 236 256 Z" fill="url(#suit)"/>
+  <!-- 白衬衫 -->
+  <path d="M96 184 L128 218 L160 184 L178 194 L164 256 L92 256 L78 194 Z" fill="#F8FBFF"/>
+  <!-- 西装翻领 -->
+  <path d="M78 194 L112 216 L96 256 L60 256 Z" fill="#2B50C2"/>
+  <path d="M178 194 L144 216 L160 256 L196 256 Z" fill="#2B50C2"/>
+  <!-- 衬衫领子 -->
+  <path d="M96 184 L128 218 L116 224 L94 198 Z" fill="#E3ECFA"/>
+  <path d="M160 184 L128 218 L140 224 L162 198 Z" fill="#E3ECFA"/>
+  <!-- 鲸鱼胸针 -->
+  <g transform="translate(172 218) scale(0.24)">
+    <path d="M4 38 C2 22 14 10 30 10 C44 10 54 18 57 30 C65 31 71 36 75 43
+             C67 42 61 44 57 49 C52 57 43 61 33 61 C16 61 5 51 4 38 Z" fill="#9CC2FF"/>
+    <circle cx="38" cy="25" r="3" fill="#1E3E9E"/>
+  </g>
+
+  <!-- 粗脖子 -->
+  <rect x="108" y="158" width="40" height="34" rx="12" fill="#DDA477"/>
+
+  <!-- 耳朵 -->
+  <ellipse cx="58" cy="112" rx="12" ry="18" fill="#E5B183"/>
+  <ellipse cx="198" cy="112" rx="12" ry="18" fill="#E5B183"/>
+  <path d="M58 105 C53 109 53 117 58 121 M198 105 C203 109 203 117 198 121"
+        fill="none" stroke="#C98F63" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- 方下巴脸型 -->
+  <path d="M64 88 C64 52 90 34 128 34 C166 34 192 52 192 88
+           L190 126 C188 158 168 178 128 184 C88 178 68 158 66 126 Z"
+        fill="url(#skin)"/>
+  <!-- 下颌阴影 -->
+  <path d="M82 145 C94 170 112 178 128 180 C144 178 162 170 174 145
+           C166 166 150 176 128 178 C106 176 90 166 82 145 Z"
+        fill="#CE9469" opacity="0.35"/>
+
+  <!-- 黑色短发 + 前刘海 -->
+  <path d="M58 96 C52 58 80 30 128 30 C176 30 204 58 198 96
+           C194 78 184 66 170 60 C156 42 120 40 100 58
+           C84 66 66 78 58 96 Z" fill="url(#hair)"/>
+  <path d="M100 58 C112 44 146 42 164 58 C154 54 142 56 134 66
+           C126 58 114 54 100 58 Z" fill="#35363E"/>
+  <path d="M164 58 C178 64 188 76 192 94 C184 82 174 74 160 70 Z" fill="#202127"/>
+  <!-- 鬓角 -->
+  <path d="M62 102 C62 116 64 128 70 138 L77 134 C71 124 70 114 71 102 Z" fill="#111216"/>
+  <path d="M194 102 C194 116 192 128 186 138 L179 134 C185 124 186 114 185 102 Z" fill="#111216"/>
+
+  <!-- 粗眉，一高一低，增加趣味 -->
+  <path d="M80 82 C90 72 104 74 112 82" fill="none" stroke="#1A1B20" stroke-width="7" stroke-linecap="round"/>
+  <path d="M144 90 C153 84 167 85 176 91" fill="none" stroke="#1A1B20" stroke-width="7" stroke-linecap="round"/>
+
+  <!-- 细框眼镜 -->
+  <g fill="rgba(220,235,255,0.20)" stroke="#202127" stroke-width="5">
+    <rect x="76" y="96" width="48" height="34" rx="9"/>
+    <rect x="132" y="96" width="48" height="34" rx="9"/>
+  </g>
+  <path d="M124 110 L132 110" fill="none" stroke="#202127" stroke-width="5" stroke-linecap="round"/>
+  <path d="M76 108 L63 104" fill="none" stroke="#202127" stroke-width="4" stroke-linecap="round"/>
+  <path d="M180 108 L193 104" fill="none" stroke="#202127" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- 自信眼神 -->
+  <ellipse cx="100" cy="114" rx="5" ry="5.5" fill="#17181D"/>
+  <ellipse cx="156" cy="114" rx="5" ry="5.5" fill="#17181D"/>
+  <circle cx="101.5" cy="112" r="1.5" fill="#FFFFFF"/>
+  <circle cx="157.5" cy="112" r="1.5" fill="#FFFFFF"/>
+
+  <!-- 鼻子与带点得意的笑 -->
+  <path d="M126 124 C129 132 126 137 120 139" fill="none" stroke="#C98F63" stroke-width="4" stroke-linecap="round"/>
+  <path d="M102 148 Q128 174 156 146 Q142 164 128 166 Q114 164 102 148 Z"
+        fill="#FFFFFF" stroke="#8F4A42" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M108 151 Q128 158 150 149" fill="none" stroke="#E8D4C8" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- 颧骨与下巴的小线条，强调硬朗 -->
+  <path d="M82 124 C86 128 88 132 88 136 M174 124 C170 128 168 132 168 136"
+        fill="none" stroke="#C98F63" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
+  <path d="M124 176 C127 178 130 178 133 176" fill="none" stroke="#B87A50" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- 一点“灵光一现”的趣味星芒 -->
+  <path d="M194 44 L198 56 L210 60 L198 64 L194 76 L190 64 L178 60 L190 56 Z"
+        fill="#FFD36B" opacity="0.95"/>
+  <circle cx="194" cy="60" r="3" fill="#FFF3C4"/>
+</svg>
