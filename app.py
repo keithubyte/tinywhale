@@ -53,7 +53,7 @@ import share_image  # noqa: E402
 
 APP_NAME = "TinyWhale"
 APP_NAME_CN = "小鲸鱼"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 BASE_URL = "https://chat.deepseek.com"
 CONFIG_DIR = os.environ.get("DSD_CONFIG_DIR") or os.path.join(
     GLib.get_user_config_dir(), "deepseek-native")
@@ -77,7 +77,50 @@ DEFAULT_MODEL_TYPE = "default"
 THEME_MODES = ("system", "light", "dark")
 
 APP_CSS = """
-@define-color chat_bg mix(@theme_bg_color, #5B5BD6, 0.02);
+@define-color accent_color #4D6BFE;
+@define-color accent_bg_color #4D6BFE;
+@define-color accent_fg_color #ffffff;
+@define-color theme_selected_bg_color #4D6BFE;
+@define-color theme_selected_fg_color #ffffff;
+@define-color link_color #4D6BFE;
+
+link,
+label link,
+textview link {
+    color: #4D6BFE;
+}
+
+selection,
+label > selection,
+textview > text > selection,
+entry > text > selection {
+    background-color: #4D6BFE;
+    color: #ffffff;
+}
+@define-color chat_bg mix(@theme_bg_color, #4D6BFE, 0.02);
+
+/* 全应用隐藏滚动条，保留滚轮 / 触控板 / 键盘滚动。 */
+scrollbar, scrollbar.vertical, scrollbar.horizontal {
+    opacity: 0;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+scrollbar trough, scrollbar.vertical trough, scrollbar.horizontal trough,
+scrollbar slider, scrollbar.vertical slider, scrollbar.horizontal slider {
+    opacity: 0;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    background-image: none;
+    box-shadow: none;
+}
 window {
     background: @chat_bg;
     color: @theme_fg_color;
@@ -106,7 +149,7 @@ button.titlebar-icon {
 }
 button.titlebar-icon:hover { background: alpha(@theme_fg_color, 0.07); }
 button.primary-button {
-    background-color: #5B5BD6;
+    background-color: #4D6BFE;
     background-image: none;
     color: #ffffff;
     border: none;
@@ -116,9 +159,9 @@ button.primary-button {
     outline: none;
     text-shadow: none;
 }
-button.primary-button:hover { background-color: #4E4EC9; }
-button.primary-button:active { background-color: #4545BA; }
-button.suggested-action { background: #5B5BD6; color: #ffffff; }
+button.primary-button:hover { background-color: #3E5CF5; }
+button.primary-button:active { background-color: #3551E8; }
+button.suggested-action { background: #4D6BFE; color: #ffffff; }
 button.icon-button {
     background: alpha(@theme_fg_color, 0.04);
     border: 1px solid alpha(@theme_fg_color, 0.08);
@@ -141,13 +184,90 @@ button.icon-button:hover { background: alpha(@theme_fg_color, 0.09); }
 }
 .chat-list row:hover { background: alpha(@theme_fg_color, 0.04); }
 .chat-list row:selected {
-    background: alpha(#5B5BD6, 0.12);
-    box-shadow: inset 3px 0 0 #5B5BD6;
+    background: alpha(#4D6BFE, 0.12);
+    box-shadow: inset 3px 0 0 #4D6BFE;
     color: @theme_fg_color;
 }
 .chat-list row:selected label { color: @theme_fg_color; }
 .chat-title { font-weight: 600; font-size: 0.95em; }
 .chat-preview { font-size: 0.8em; color: alpha(@theme_fg_color, 0.50); }
+menubutton.chat-more > button {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 999px;
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0;
+    margin: 0 2px;
+    color: alpha(@theme_fg_color, 0.58);
+}
+menubutton.chat-more > button:hover {
+    background: transparent;
+    color: #4D6BFE;
+}
+.chat-menu-item {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 8px;
+    padding: 7px 10px;
+}
+.chat-menu-item:hover {
+    background: alpha(@theme_fg_color, 0.07);
+    outline: none;
+}
+.chat-menu-item:focus {
+    background: transparent;
+    outline: none;
+}
+.chat-menu-item image { color: alpha(@theme_fg_color, 0.72); }
+.chat-menu-delete { color: #E5484D; }
+.chat-menu-delete:hover { background: alpha(@theme_fg_color, 0.07); }
+.chat-menu-popover > contents {
+    border-radius: 12px;
+    box-shadow: 0 10px 28px alpha(black, 0.20);
+}
+.chat-menu-box {
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+}
+.chat-menu-delete-icon,
+.chat-menu-delete-label {
+    color: #E5484D;
+}
+.confirm-dialog {
+    background: transparent;
+}
+.confirm-detail {
+    font-size: 0.98em;
+    color: alpha(@theme_fg_color, 0.70);
+}
+.confirm-icon {
+    background: alpha(#4D6BFE, 0.10);
+    border-radius: 999px;
+    min-width: 48px;
+    min-height: 48px;
+}
+.confirm-icon image { color: #4D6BFE; }
+button.confirm-delete {
+    background-image: none;
+    background-color: #E5484D;
+    color: #ffffff;
+    border: 1px solid #E5484D;
+    box-shadow: none;
+    border-radius: 8px;
+    padding: 6px 18px;
+}
+button.confirm-delete:hover { background-color: #D93C42; }
+button.confirm-delete:active { background-color: #C52F35; }
+.chat-select-bar {
+    background: alpha(#4D6BFE, 0.06);
+    border: 1px solid alpha(#4D6BFE, 0.22);
+    border-radius: 10px;
+    padding: 5px 8px;
+}
 .search-pill {
     background: alpha(@theme_fg_color, 0.05);
     border: none;
@@ -168,9 +288,9 @@ button.icon-button:hover { background: alpha(@theme_fg_color, 0.09); }
     box-shadow: none;
 }
 .pill-toggle:checked {
-    background: alpha(#5B5BD6, 0.14);
-    color: #5B5BD6;
-    border-color: alpha(#5B5BD6, 0.25);
+    background: alpha(#4D6BFE, 0.14);
+    color: #4D6BFE;
+    border-color: alpha(#4D6BFE, 0.25);
 }
 .msg-role { font-size: 0.78em; font-weight: 700; color: alpha(@theme_fg_color, 0.50); }
 .msg-body { color: @theme_fg_color; }
@@ -181,7 +301,7 @@ button.icon-button:hover { background: alpha(@theme_fg_color, 0.09); }
     box-shadow: none;
 }
 .bubble-user {
-    background: alpha(#5B5BD6, 0.12);
+    background: alpha(#4D6BFE, 0.12);
     border-radius: 18px;
     padding: 10px 14px;
     box-shadow: none;
@@ -195,13 +315,13 @@ button.icon-button:hover { background: alpha(@theme_fg_color, 0.09); }
     padding: 9px 11px;
 }
 .source-card:hover { background: alpha(@theme_fg_color, 0.07); }
-.source-index { font-weight: 700; color: #5B5BD6; min-width: 20px; }
+.source-index { font-weight: 700; color: #4D6BFE; min-width: 20px; }
 .source-title { font-weight: 600; }
 .source-meta { font-size: 0.8em; color: alpha(@theme_fg_color, 0.55); }
 .source-snippet { font-size: 0.85em; color: alpha(@theme_fg_color, 0.78); }
 .attachment-chip {
-    background: alpha(#5B5BD6, 0.12);
-    color: #5B5BD6;
+    background: alpha(#4D6BFE, 0.12);
+    color: #4D6BFE;
     border-radius: 999px;
     padding: 4px 10px;
 }
@@ -220,7 +340,7 @@ scrolledwindow { background: transparent; }
 .msg-actions { margin-top: 2px; }
 .edit-frame {
     background: @theme_base_color;
-    border: 1.5px solid #5B5BD6;
+    border: 1.5px solid #4D6BFE;
     border-radius: 16px;
     padding: 6px 12px 5px 12px;
 }
@@ -241,7 +361,7 @@ scrolledwindow { background: transparent; }
 }
 .edit-cancel:hover { background: alpha(@theme_fg_color, 0.05); }
 .edit-send {
-    background: #5B5BD6;
+    background: #4D6BFE;
     color: #ffffff;
     border: none;
     border-radius: 999px;
@@ -250,7 +370,7 @@ scrolledwindow { background: transparent; }
     box-shadow: none;
     font-weight: 600;
 }
-.edit-send:hover { background: #4E4EC9; }
+.edit-send:hover { background: #3E5CF5; }
 .edit-send:disabled { opacity: 0.45; }
 .msg-action {
     background: transparent;
@@ -261,7 +381,7 @@ scrolledwindow { background: transparent; }
     padding: 2px 4px;
     min-height: 24px;
 }
-.msg-action:hover { color: #5B5BD6; background: alpha(@theme_fg_color, 0.05); }
+.msg-action:hover { color: #4D6BFE; background: alpha(@theme_fg_color, 0.05); }
 .msg-action.copied { color: #2E9E5B; }
 .share-brand { margin-top: 6px; margin-bottom: 18px; }
 .share-brand-title {
@@ -288,7 +408,7 @@ scrolledwindow { background: transparent; }
     min-height: 40px;
     border-radius: 999px;
     background: transparent;
-    color: #5B5BD6;
+    color: #4D6BFE;
     font-weight: 700;
     padding: 0;
     -gtk-icon-size: 40px;
@@ -305,7 +425,7 @@ scrolledwindow { background: transparent; }
 .settings-section-title { font-weight: 700; font-size: 1.04em; }
 .settings-hint { font-size: 0.82em; color: alpha(@theme_fg_color, 0.50); }
 .settings-row { min-height: 38px; }
-.settings-unit { font-size: 0.82em; color: alpha(@theme_fg_color, 0.55); }
+.settings-path { font-size: 0.86em; color: alpha(@theme_fg_color, 0.68); }
 .about-name { font-size: 28px; font-weight: 700; }
 .about-english { font-size: 15px; color: alpha(@theme_fg_color, 0.55); }
 .about-comment {
@@ -313,8 +433,8 @@ scrolledwindow { background: transparent; }
     color: alpha(@theme_fg_color, 0.72);
 }
 .about-version {
-    background: alpha(#5B5BD6, 0.10);
-    color: #5B5BD6;
+    background: alpha(#4D6BFE, 0.10);
+    color: #4D6BFE;
     border-radius: 999px;
     padding: 3px 12px;
     font-size: 0.78em;
@@ -329,22 +449,22 @@ button.settings-about {
 }
 button.settings-about:hover { background: alpha(@theme_fg_color, 0.065); }
 .input-pill {
-    background: alpha(#5B5BD6, 0.04);
-    border: 1px solid alpha(#5B5BD6, 0.28);
+    background: alpha(#4D6BFE, 0.04);
+    border: 1px solid alpha(#4D6BFE, 0.28);
     border-radius: 999px;
-    color: #5B5BD6;
+    color: #4D6BFE;
     padding: 2px 12px;
     font-size: 0.9em;
     box-shadow: none;
 }
-.input-pill:checked { background: alpha(#5B5BD6, 0.16); }
-.input-pill image { color: #5B5BD6; }
+.input-pill:checked { background: alpha(#4D6BFE, 0.16); }
+.input-pill image { color: #4D6BFE; }
 .send-circle {
     min-width: 34px;
     min-height: 34px;
     border-radius: 999px;
-    background: alpha(#5B5BD6, 0.18);
-    color: #5B5BD6;
+    background: alpha(#4D6BFE, 0.18);
+    color: #4D6BFE;
     padding: 0;
     border: 0;
     outline: none;
@@ -352,12 +472,12 @@ button.settings-about:hover { background: alpha(@theme_fg_color, 0.065); }
 }
 .send-circle:disabled { opacity: 1; }
 .send-circle.send-active {
-    background: #5B5BD6;
+    background: #4D6BFE;
     color: #ffffff;
     box-shadow: none;
 }
-.send-circle.send-idle { background: alpha(#5B5BD6, 0.18); color: #5B5BD6; }
-.send-circle.send-idle:hover { background: alpha(#5B5BD6, 0.26); }
+.send-circle.send-idle { background: alpha(#4D6BFE, 0.18); color: #4D6BFE; }
+.send-circle.send-idle:hover { background: alpha(#4D6BFE, 0.26); }
 .stop-circle { background: alpha(@theme_fg_color, 0.14); color: @theme_fg_color; box-shadow: none; }
 .stop-circle:disabled { opacity: 1; }
 .list-fade {
@@ -417,8 +537,8 @@ paned > separator { background: transparent; min-width: 0; min-height: 0; box-sh
 .h5 { font-size: 0.96em; font-weight: 700; }
 .h6 { font-size: 0.9em; font-weight: 700; color: alpha(@theme_fg_color, 0.72); }
 .quote {
-    background: alpha(#5B5BD6, 0.06);
-    border-left: 3px solid alpha(#5B5BD6, 0.45);
+    background: alpha(#4D6BFE, 0.06);
+    border-left: 3px solid alpha(#4D6BFE, 0.45);
     border-radius: 0 10px 10px 0;
     padding: 8px 12px;
     color: alpha(@theme_fg_color, 0.82);
@@ -438,7 +558,7 @@ paned > separator { background: transparent; min-width: 0; min-height: 0; box-sh
 .h1 { margin-top: 12px; margin-bottom: 3px; }
 .h2 { margin-top: 10px; margin-bottom: 2px; }
 .h3 { margin-top: 8px; margin-bottom: 2px; }
-.md-bullet { color: #5B5BD6; font-weight: 600; min-width: 20px; }
+.md-bullet { color: #4D6BFE; font-weight: 600; min-width: 20px; }
 .md-hr { margin: 8px 0; background: alpha(@theme_fg_color, 0.10); min-height: 1px; }
 .md-math-block {
     background: alpha(@theme_fg_color, 0.03);
@@ -471,7 +591,7 @@ paned > separator { background: transparent; min-width: 0; min-height: 0; box-sh
     color: @theme_fg_color;
 }
 .md-head {
-    background: alpha(#5B5BD6, 0.08);
+    background: alpha(#4D6BFE, 0.08);
     font-weight: 700;
 }
 .md-row-alt { background: alpha(@theme_fg_color, 0.025); }
@@ -733,7 +853,11 @@ def apply_theme_mode(mode: str) -> bool:
 
 
 def load_settings() -> dict:
-    settings = {"theme": "system", "fonts": normalize_fonts(None)}
+    settings = {
+        "theme": "system",
+        "fonts": normalize_fonts(None),
+        "long_image_dir": "",
+    }
     try:
         with open(SETTINGS_FILE, "r", encoding="utf-8") as fh:
             saved = json.load(fh)
@@ -741,6 +865,9 @@ def load_settings() -> dict:
             if saved.get("theme") in THEME_MODES:
                 settings["theme"] = saved["theme"]
             settings["fonts"] = normalize_fonts(saved.get("fonts"))
+            directory = saved.get("long_image_dir")
+            if isinstance(directory, str):
+                settings["long_image_dir"] = directory.strip()[:1024]
     except (OSError, ValueError):
         pass
     return settings
@@ -755,6 +882,29 @@ def save_settings(settings: dict) -> None:
         os.replace(tmp, SETTINGS_FILE)
     except OSError:
         pass
+
+
+def default_long_image_dir() -> str:
+    pictures = None
+    try:
+        pictures = GLib.get_user_special_dir(
+            GLib.UserDirectory.DIRECTORY_PICTURES)
+    except Exception:
+        pictures = None
+    if not pictures:
+        pictures = os.path.join(os.path.expanduser("~"), "Pictures")
+    return os.path.join(pictures, "deepseek-sessions")
+
+
+def effective_long_image_dir(settings: dict) -> str:
+    configured = (settings.get("long_image_dir") or "").strip()
+    return configured or default_long_image_dir()
+
+
+def long_image_filename(chat_id) -> str:
+    session = re.sub(r"[^0-9A-Za-z._-]+", "_", str(chat_id or "demo"))
+    session = session.strip("._-") or "demo"
+    return "ds-%s-%s.jpg" % (session[:64], time.strftime("%Y%m%d-%H%M%S"))
 
 
 def _is_dark_theme() -> bool:
@@ -1568,14 +1718,11 @@ def remote_image_widget(url: str, alt: str) -> Gtk.Widget:
     def finished(session, result):
         try:
             data = session.send_and_read_finish(result)
-            stream = Gio.MemoryInputStream.new_from_bytes(data)
-            pixbuf = GdkPixbuf.Pixbuf.new_from_stream(stream, None)
-            width, height = pixbuf.get_width(), pixbuf.get_height()
+            texture = Gdk.Texture.new_from_bytes(data)
+            width, height = texture.get_width(), texture.get_height()
             if width > 420:
                 height = max(1, int(height * 420 / width))
                 width = 420
-                pixbuf = pixbuf.scale_simple(width, height, GdkPixbuf.InterpType.BILINEAR)
-            texture = Gdk.Texture.new_for_pixbuf(pixbuf)
             picture.set_paintable(texture)
             picture.set_size_request(width, height)
             caption.set_text(alt or "图片")
@@ -1624,6 +1771,52 @@ def extract_definitions(text: str):
             continue
         kept.append(line)
     return "\n".join(kept), refs, footnotes, footnote_order
+
+
+class FadePopover(Gtk.Popover):
+    """Popover with a small opacity fade on open/close."""
+
+    def __init__(self):
+        super().__init__()
+        self._fade_source = 0
+
+    def _cancel_fade(self):
+        if self._fade_source:
+            try:
+                GLib.source_remove(self._fade_source)
+            except Exception:
+                pass
+            self._fade_source = 0
+
+    def _fade_to(self, target, done=None):
+        self._cancel_fade()
+        start = self.get_opacity()
+        steps = max(1, int(0.14 * 1000 / 16))
+        index = [0]
+
+        def tick():
+            index[0] += 1
+            value = start + (target - start) * (index[0] / steps)
+            self.set_opacity(max(0.0, min(1.0, value)))
+            if index[0] >= steps:
+                self._fade_source = 0
+                if done is not None:
+                    done()
+                return False
+            return True
+
+        self._fade_source = GLib.timeout_add(16, tick)
+
+    def popup(self):
+        self._cancel_fade()
+        self.set_opacity(0.0)
+        Gtk.Popover.popup(self)
+        self._fade_to(1.0)
+
+    def popdown(self):
+        if not self.get_visible():
+            return
+        self._fade_to(0.0, lambda: Gtk.Popover.popdown(self))
 
 
 def markdown_widgets(text: str, sources=None, refs=None, footnotes=None,
@@ -2399,6 +2592,12 @@ class MainWindow(Gtk.ApplicationWindow):
         self.demo = demo
         self.chat_id: str | None = None
         self.last_message_id: int | None = None
+        self._pending_chat_row = None
+        self.chat_select_mode = False
+        self._multi_bar = None
+        self._multi_label = None
+        self._pending_title_fetching = False
+        self._pending_title_tries = 0
         self.message_views: list[MessageView] = []
         self.current_assistant: MessageView | None = None
         self.stream_text = ""
@@ -2608,6 +2807,26 @@ class MainWindow(Gtk.ApplicationWindow):
         new_btn.connect("clicked", lambda *_: self.new_chat())
         sidebar.append(new_btn)
 
+        self._multi_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                                  spacing=6, margin_start=10, margin_end=10,
+                                  margin_bottom=6)
+        self._multi_bar.add_css_class("chat-select-bar")
+        self._multi_bar.set_visible(False)
+        self._multi_label = Gtk.Label(label="已选 0 个会话", xalign=0)
+        self._multi_label.set_hexpand(True)
+        self._multi_bar.append(self._multi_label)
+        multi_delete = Gtk.Button.new_from_icon_name("user-trash-symbolic")
+        multi_delete.set_tooltip_text("删除所选会话")
+        multi_delete.add_css_class("chat-multi-delete")
+        multi_delete.set_sensitive(False)
+        multi_delete.connect("clicked", lambda *_: self._delete_selected_chats())
+        self._multi_delete = multi_delete
+        self._multi_bar.append(multi_delete)
+        multi_cancel = Gtk.Button(label="取消")
+        multi_cancel.connect("clicked", lambda *_: self._exit_multi_select())
+        self._multi_bar.append(multi_cancel)
+        sidebar.append(self._multi_bar)
+
         self.search_entry = Gtk.SearchEntry()
         self.search_entry.add_css_class("search-pill")
         self.search_entry.set_placeholder_text("搜索会话…")
@@ -2625,6 +2844,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.chat_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
         self.chat_list.add_css_class("chat-list")
         self.chat_list.connect("row-activated", self._on_chat_activated)
+        self.chat_list.connect("row-selected", self._on_chat_row_selected)
         scrolled.set_child(self.chat_list)
         self.chat_scroll = scrolled.get_vadjustment()
         self.chat_scroll.connect("value-changed", self._on_chat_scroll)
@@ -2644,10 +2864,11 @@ class MainWindow(Gtk.ApplicationWindow):
                           margin_start=10, margin_end=6, margin_top=6, margin_bottom=8)
         self.profile_row = profile
         try:
-            badge = GdkPixbuf.Pixbuf.new_from_file(
-                os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                             "assets", "avatar-user-badge-40.png"))
-            self.profile_avatar = Gtk.Image.new_from_pixbuf(badge)
+            badge_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "assets", "avatar-user-badge-40.png")
+            texture = Gdk.Texture.new_from_filename(badge_path)
+            self.profile_avatar = Gtk.Image.new_from_paintable(texture)
             self.profile_avatar.set_size_request(40, 40)
         except Exception:
             self.profile_avatar = Gtk.Label(label="D")
@@ -2777,15 +2998,25 @@ class MainWindow(Gtk.ApplicationWindow):
         self.input_placeholder.set_margin_start(4)
         self.input_placeholder.set_margin_top(5)
         self.input_placeholder.set_can_target(False)
+        self.input_placeholder.set_can_focus(False)
+        self.input_placeholder.set_focusable(False)
         overlay.add_overlay(self.input_placeholder)
         input_box.append(overlay)
         self.input_view.get_buffer().connect("changed", self._on_input_changed)
+        focus = Gtk.EventControllerFocus()
+        focus.connect("enter", self._on_input_focus)
+        focus.connect("leave", self._on_input_focus)
+        self.input_view.add_controller(focus)
+        self.input_view.connect(
+            "notify::has-focus", lambda *_: self._on_input_focus(None))
 
         controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8,
                            margin_start=2, margin_end=2)
         self.thinking_toggle = make_pill_toggle("深度思考", "applications-science-symbolic")
+        self.thinking_toggle.set_active(True)
         controls.append(self.thinking_toggle)
         self.search_toggle = make_pill_toggle("智能搜索", "web-browser-symbolic")
+        self.search_toggle.set_active(True)
         controls.append(self.search_toggle)
 
         spacer = Gtk.Box()
@@ -2843,9 +3074,8 @@ class MainWindow(Gtk.ApplicationWindow):
         icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                  "assets", "icon.svg")
         try:
-            pixbuf = GdkPixbuf.Pixbuf.new_from_file(icon_path)
-            picture = Gtk.Picture.new_for_paintable(
-                Gdk.Texture.new_for_pixbuf(pixbuf))
+            texture = Gdk.Texture.new_from_filename(icon_path)
+            picture = Gtk.Picture.new_for_paintable(texture)
             picture.set_size_request(52, 52)
             row.append(picture)
         except Exception:
@@ -2861,8 +3091,17 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _on_input_changed(self, buffer):
         text = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), True)
-        self.input_placeholder.set_visible(not text.strip())
+        focused = self.input_view.has_focus()
+        self.input_placeholder.set_visible(not focused and not text.strip())
         self._update_send_sensitive()
+        return False
+
+    def _on_input_focus(self, _controller):
+        # 输入框获得焦点时隐藏占位提示；失焦且内容为空时再显示。
+        buf = self.input_view.get_buffer()
+        text = buf.get_text(buf.get_start_iter(), buf.get_end_iter(), True)
+        focused = self.input_view.has_focus()
+        self.input_placeholder.set_visible(not focused and not text.strip())
         return False
 
     def _update_send_sensitive(self):
@@ -3046,9 +3285,27 @@ class MainWindow(Gtk.ApplicationWindow):
         spin.set_tooltip_text("正文行距倍数；不影响代码框")
         spin.connect("value-changed", self._on_line_spacing_changed)
         row.append(spin)
-        unit = Gtk.Label(label="×")
-        unit.add_css_class("settings-unit")
-        row.append(unit)
+        return row
+
+    def _long_image_dir_row(self) -> Gtk.Widget:
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        row.add_css_class("settings-row")
+        name = Gtk.Label(label="长图", xalign=0, valign=Gtk.Align.CENTER)
+        name.set_size_request(118, -1)
+        row.append(name)
+        path = effective_long_image_dir(self.settings)
+        label = Gtk.Label(label=path, xalign=0, valign=Gtk.Align.CENTER)
+        label.add_css_class("settings-path")
+        label.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
+        label.set_max_width_chars(26)
+        label.set_hexpand(True)
+        label.set_tooltip_text(path)
+        row.append(label)
+        self._long_image_dir_label = label
+        choose = Gtk.Button(label="选择…")
+        choose.set_valign(Gtk.Align.CENTER)
+        choose.connect("clicked", self._choose_long_image_dir)
+        row.append(choose)
         return row
 
     def _on_line_spacing_changed(self, spin) -> None:
@@ -3073,9 +3330,6 @@ class MainWindow(Gtk.ApplicationWindow):
 
         size.connect("value-changed", on_size)
         row.append(size)
-        unit = Gtk.Label(label="pt")
-        unit.add_css_class("settings-unit")
-        row.append(unit)
         return row
 
     def open_settings(self):
@@ -3142,6 +3396,7 @@ class MainWindow(Gtk.ApplicationWindow):
         other_title.add_css_class("settings-section-title")
         other_section.append(other_title)
         other_section.append(self._line_spacing_row())
+        other_section.append(self._long_image_dir_row())
         page.append(other_section)
 
         about_content = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -3200,7 +3455,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self._last_group = None
 
     @staticmethod
-    def _chat_group(updated_at) -> str:
+    def _chat_group(updated_at, pinned=False) -> str:
+        if pinned:
+            return "置顶"
         try:
             stamp = updated_at / 1000 if updated_at > 10 ** 12 else updated_at
             date = datetime.fromtimestamp(stamp).date()
@@ -3215,24 +3472,36 @@ class MainWindow(Gtk.ApplicationWindow):
             return "7 天内"
         return "更早"
 
-    def _add_group_header(self, title: str):
+    def _make_group_header(self, title: str):
         row = Gtk.ListBoxRow()
         row.set_selectable(False)
         row.set_activatable(False)
         label = Gtk.Label(label=title, xalign=0)
         label.add_css_class("group-header")
         row.set_child(label)
-        self.chat_list.append(row)
+        return row
+
+    def _add_group_header(self, title: str):
+        self.chat_list.append(self._make_group_header(title))
 
     def _add_chat_row(self, chat: dict):
-        group = self._chat_group(chat.get("updated_at") or 0)
+        group = self._chat_group(chat.get("updated_at") or 0,
+                                 bool(chat.get("pinned")))
         if group != self._last_group:
             self._add_group_header(group)
             self._last_group = group
         row = Gtk.ListBoxRow()
         row.chat_id = chat.get("id")
         row.chat_title = chat.get("title") or "未命名对话"
+        row.pinned = bool(chat.get("pinned"))
+        row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        check = Gtk.CheckButton()
+        check.set_visible(False)
+        check.set_valign(Gtk.Align.CENTER)
+        row.check = check
+        row_box.append(check)
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        box.set_hexpand(True)
         title = Gtk.Label(label=chat.get("title") or "未命名对话", xalign=0)
         title.set_ellipsize(Pango.EllipsizeMode.END)
         title.add_css_class("chat-title")
@@ -3247,8 +3516,180 @@ class MainWindow(Gtk.ApplicationWindow):
         subtitle = Gtk.Label(label=stamp, xalign=0)
         subtitle.add_css_class("chat-preview")
         box.append(subtitle)
-        row.set_child(box)
+        row_box.append(box)
+        row.title_label = title
+        row.subtitle_label = subtitle
+        more = self._make_chat_more(row)
+        row.more_button = more
+        row_box.append(more)
+        row.set_child(row_box)
+        self._wire_chat_row(row)
         self.chat_list.append(row)
+
+    def _on_chat_row_selected(self, _listbox, selected):
+        for row in self._chat_rows():
+            self._set_chat_more_visible(row, row is selected)
+
+    def _set_chat_more_visible(self, row, visible=True):
+        # 三点菜单始终可用；多选模式下暂时隐藏。
+        button = getattr(row, "more_button", None)
+        if button is not None:
+            button.set_visible(not getattr(self, "chat_select_mode", False))
+
+    def _wire_chat_row(self, row):
+        check = getattr(row, "check", None)
+        if check is not None:
+            check.connect("toggled", self._on_chat_checked, row)
+        row.connect("notify::selected", lambda *_: self._set_chat_more_visible(
+            row, row.is_selected()))
+        motion = Gtk.EventControllerMotion()
+        motion.connect("enter", lambda *_: self._set_chat_more_visible(row, True))
+        motion.connect("leave", lambda *_: self._set_chat_more_visible(
+            row, row.is_selected()))
+        row.add_controller(motion)
+
+    def _make_chat_more(self, row):
+        button = Gtk.MenuButton()
+        button.add_css_class("chat-more")
+        image = Gtk.Image.new_from_icon_name("view-more-symbolic")
+        image.set_pixel_size(16)
+        button.set_child(image)
+        button.set_tooltip_text("会话操作")
+        button.set_visible(True)
+        popover = FadePopover()
+        popover.add_css_class("chat-menu-popover")
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2,
+                      margin_start=5, margin_end=5,
+                      margin_top=5, margin_bottom=5)
+        box.add_css_class("chat-menu-box")
+        box.set_size_request(126, -1)
+
+        def close_menu():
+            try:
+                button.set_active(False)
+            except Exception:
+                try:
+                    popover.popdown()
+                except Exception:
+                    pass
+
+        def item(icon_name, label, callback, css=None):
+            btn = Gtk.Button()
+            btn.set_can_focus(False)
+            btn.add_css_class("chat-menu-item")
+            if css:
+                btn.add_css_class(css)
+            content = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=9)
+            icon = Gtk.Image.new_from_icon_name(icon_name)
+            icon.set_pixel_size(16)
+            content.append(icon)
+            text = Gtk.Label(label=label, xalign=0)
+            text.set_hexpand(True)
+            if css == "chat-menu-delete":
+                icon.add_css_class("chat-menu-delete-icon")
+                text.add_css_class("chat-menu-delete-label")
+            content.append(text)
+            btn.set_child(content)
+            btn.connect("clicked", lambda *_: (close_menu(), callback()))
+            box.append(btn)
+            return btn
+
+        item("document-edit-symbolic", "重命名", lambda: self._rename_chat(row))
+        pin = item("starred-symbolic",
+                   "取消置顶" if getattr(row, "pinned", False) else "置顶",
+                   lambda: self._toggle_pin_chat(row),
+                   "chat-menu-pin")
+        item("emblem-shared-symbolic", "分享", lambda: self._share_chat_row(row))
+        item("object-select-symbolic", "多选", self._enter_multi_select)
+        item("user-trash-symbolic", "删除", lambda: self._delete_chat(row),
+             "chat-menu-delete")
+        popover.set_child(box)
+        button.set_popover(popover)
+        row.menu_pin = pin
+        return button
+
+    def _insert_pending_chat_row(self):
+        if self._pending_chat_row is not None:
+            return
+        row = Gtk.ListBoxRow()
+        row.chat_id = None
+        row.chat_title = "新会话"
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        title = Gtk.Label(label="新会话", xalign=0)
+        title.set_ellipsize(Pango.EllipsizeMode.END)
+        title.add_css_class("chat-title")
+        box.append(title)
+        subtitle = Gtk.Label(
+            label=datetime.now().strftime("%m-%d %H:%M"), xalign=0)
+        subtitle.add_css_class("chat-preview")
+        box.append(subtitle)
+        row.set_child(box)
+        row.title_label = title
+        row.subtitle_label = subtitle
+
+        first = self.chat_list.get_row_at_index(0)
+        has_today = False
+        if first is not None and getattr(first, "chat_title", None) is None:
+            child = first.get_child()
+            if isinstance(child, Gtk.Label) and child.get_text() == "今天":
+                has_today = True
+        if not has_today:
+            self.chat_list.insert(self._make_group_header("今天"), 0)
+        self.chat_list.insert(row, 1 if not has_today else 1)
+        self._pending_chat_row = row
+        self.chat_list.select_row(row)
+
+    def _drop_pending_chat_row(self):
+        row = self._pending_chat_row
+        self._pending_chat_row = None
+        if row is None:
+            return
+        if not getattr(row, "chat_id", None):
+            try:
+                self.chat_list.remove(row)
+            except Exception:
+                pass
+
+    def _set_pending_chat_title(self, row, title):
+        self._pending_title_fetching = False
+        if row is None or row.get_parent() is None:
+            self._pending_chat_row = None
+            return False
+        title = (title or "").strip()
+        if title and title not in ("新会话", "未命名对话"):
+            row.chat_title = title
+            label = getattr(row, "title_label", None)
+            if label is not None:
+                label.set_text(title)
+            self._pending_chat_row = None
+            self._pending_title_tries = 0
+        else:
+            self._pending_title_tries += 1
+            if self._pending_title_tries < 5:
+                GLib.timeout_add(1500, self._load_pending_chat_title)
+        return False
+
+    def _load_pending_chat_title(self):
+        row = self._pending_chat_row
+        if (row is None or not self.chat_id or self.api is None
+                or self._pending_title_fetching):
+            return False
+        self._pending_title_fetching = True
+        chat_id = self.chat_id
+
+        def work():
+            title = ""
+            try:
+                for chat in self.api.list_chats(30):
+                    if str(chat.get("id")) == str(chat_id):
+                        title = chat.get("title") or ""
+                        break
+            except Exception:
+                pass
+            GLib.idle_add(self._set_pending_chat_title, row, title)
+
+        threading.Thread(target=work, daemon=True).start()
+        return False
 
     def _populate_demo_chats(self):
         self._clear_chat_list()
@@ -3260,6 +3701,7 @@ class MainWindow(Gtk.ApplicationWindow):
         while row is not None:
             if getattr(row, "chat_id", None) == target_id:
                 self.chat_list.select_row(row)
+                self._set_chat_more_visible(row, True)
                 self._render_demo(target_id)
                 break
             row = row.get_next_sibling()
@@ -3282,14 +3724,19 @@ class MainWindow(Gtk.ApplicationWindow):
             try:
                 chats, has_more, next_cursor = self.api.list_chats_page(30, cursor)
             except Exception as exc:
-                GLib.idle_add(self._chat_load_failed, str(exc))
+                GLib.idle_add(self._chat_load_failed, str(exc),
+                              isinstance(exc, AuthError))
                 return
             GLib.idle_add(self._append_chat_page, chats, has_more, next_cursor)
 
         threading.Thread(target=work, daemon=True).start()
 
-    def _chat_load_failed(self, message):
+    def _chat_load_failed(self, message, auth=False):
         self.loading_chats = False
+        if auth:
+            self.status_label.set_text("登录已失效，请重新登录")
+            self._relogin()
+            return False
         self.status_label.set_text(f"会话列表失败：{message}")
         return False
 
@@ -3413,8 +3860,320 @@ class MainWindow(Gtk.ApplicationWindow):
         self.chat_list.append(row)
         return False
 
+    def _on_chat_checked(self, check, row):
+        self._update_multi_bar()
+        return False
+
+    def _chat_rows(self):
+        rows = []
+        index = 0
+        while True:
+            row = self.chat_list.get_row_at_index(index)
+            if row is None:
+                break
+            rows.append(row)
+            index += 1
+        return rows
+
+    def _selected_chat_rows(self):
+        return [row for row in self._chat_rows()
+                if getattr(row, "check", None) is not None
+                and row.check.get_active() and getattr(row, "chat_id", None)]
+
+    def _update_multi_bar(self):
+        if self._multi_bar is None:
+            return
+        count = len(self._selected_chat_rows())
+        self._multi_label.set_text(f"已选 {count} 个会话")
+        if hasattr(self, "_multi_delete"):
+            self._multi_delete.set_sensitive(count > 0)
+
+    def _enter_multi_select(self, *_args):
+        if self.demo or self.api is None:
+            self.status_label.set_text("演示模式不支持多选")
+            return
+        self.chat_select_mode = True
+        self.chat_list.set_selection_mode(Gtk.SelectionMode.NONE)
+        if self._multi_bar is not None:
+            self._multi_bar.set_visible(True)
+        for row in self._chat_rows():
+            check = getattr(row, "check", None)
+            if check is not None and getattr(row, "chat_id", None):
+                check.set_active(False)
+                check.set_visible(True)
+            self._set_chat_more_visible(row, False)
+        self._update_multi_bar()
+
+    def _exit_multi_select(self):
+        self.chat_select_mode = False
+        for row in self._chat_rows():
+            check = getattr(row, "check", None)
+            if check is not None:
+                check.set_active(False)
+                check.set_visible(False)
+        if self._multi_bar is not None:
+            self._multi_bar.set_visible(False)
+        self.chat_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        for row in self._chat_rows():
+            self._set_chat_more_visible(row, True)
+
+    def _delete_selected_chats(self):
+        rows = self._selected_chat_rows()
+        ids = [str(row.chat_id) for row in rows]
+        if ids:
+            self._confirm_delete_chats(ids)
+
+    def _delete_chat(self, row):
+        chat_id = getattr(row, "chat_id", None)
+        if chat_id:
+            self._confirm_delete_chats([str(chat_id)])
+
+    def _confirm_delete_chats(self, ids):
+        for row in self._chat_rows():
+            button = getattr(row, "more_button", None)
+            if button is not None:
+                try:
+                    button.set_active(False)
+                except Exception:
+                    pass
+        existing = getattr(self, "_confirm_window", None)
+        if existing is not None:
+            try:
+                existing.present()
+                return
+            except Exception:
+                self._confirm_window = None
+
+        window = Gtk.Window(transient_for=self, modal=True,
+                            title="删除会话")
+        window.set_resizable(False)
+        window.set_default_size(420, 180)
+        header = Gtk.HeaderBar()
+        header.set_show_title_buttons(True)
+        header.set_title_widget(Gtk.Label(label="删除会话"))
+        window.set_titlebar(header)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12,
+                      margin_start=24, margin_end=24,
+                      margin_top=16, margin_bottom=14)
+        box.add_css_class("confirm-dialog")
+        top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
+        icon_box = Gtk.CenterBox()
+        icon_box.set_size_request(48, 48)
+        icon_box.add_css_class("confirm-icon")
+        icon = Gtk.Image.new_from_icon_name("user-trash-symbolic")
+        icon.set_pixel_size(24)
+        icon_box.set_center_widget(icon)
+        top.append(icon_box)
+        detail = Gtk.Label(
+            label="确定删除选中的 %d 个会话吗？\n此操作不可恢复。" % len(ids),
+            xalign=0, wrap=True)
+        detail.add_css_class("confirm-detail")
+        detail.set_hexpand(True)
+        top.append(detail)
+        box.append(top)
+        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8,
+                          halign=Gtk.Align.END)
+        cancel = Gtk.Button(label="取消")
+        actions.append(cancel)
+        delete = Gtk.Button(label="删除")
+        delete.add_css_class("confirm-delete")
+        actions.append(delete)
+        box.append(actions)
+        window.set_child(box)
+        self._confirm_window = window
+        if hasattr(self, "modal_shade"):
+            self.modal_shade.set_visible(True)
+
+        def hide_shade():
+            if hasattr(self, "modal_shade"):
+                self.modal_shade.set_visible(False)
+
+        def cleanup(*_args):
+            if self._confirm_window is window:
+                self._confirm_window = None
+            hide_shade()
+            for row in self._chat_rows():
+                button = getattr(row, "more_button", None)
+                if button is not None:
+                    try:
+                        button.set_active(False)
+                    except Exception:
+                        pass
+            return False
+
+        def close_window(*_args):
+            # 无论取消、点 X 还是销毁，都立即撤掉蒙版并销毁 modal 窗口。
+            hide_shade()
+            if self._confirm_window is window:
+                self._confirm_window = None
+            try:
+                window.destroy()
+            except Exception:
+                pass
+            return True
+
+        def on_visible(widget, _pspec):
+            if not widget.get_visible():
+                hide_shade()
+                if self._confirm_window is window:
+                    self._confirm_window = None
+
+        def do_delete(*_args):
+            close_window()
+            self._delete_chats(ids)
+
+        cancel.connect("clicked", lambda *_: close_window())
+        delete.connect("clicked", do_delete)
+        window.connect("close-request", close_window)
+        window.connect("notify::visible", on_visible)
+        window.connect("destroy", cleanup)
+        window.present()
+        cancel.grab_focus()
+
+    def _delete_chats(self, ids):
+        if not ids or self.api is None:
+            return
+        self.status_label.set_text("正在删除会话…")
+
+        def work():
+            errors = []
+            for chat_id in ids:
+                try:
+                    self.api.delete_chat(chat_id)
+                except Exception as exc:
+                    errors.append(str(exc))
+            GLib.idle_add(self._delete_chats_done, ids, errors)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _delete_chats_done(self, ids, errors):
+        if self.chat_id and str(self.chat_id) in {str(x) for x in ids}:
+            self.new_chat()
+        self._exit_multi_select()
+        self.load_chats(reset=True)
+        if errors:
+            self.status_label.set_text("部分会话删除失败：" + errors[0][:80])
+        else:
+            self.status_label.set_text("会话已删除")
+        return False
+
+    def _rename_chat(self, row):
+        if self.demo or self.api is None or not getattr(row, "chat_id", None):
+            self.status_label.set_text("演示模式不支持重命名")
+            return
+        window = Gtk.Window(transient_for=self, modal=True,
+                            title="重命名会话")
+        window.set_default_size(420, 160)
+        header = Gtk.HeaderBar()
+        header.set_show_title_buttons(True)
+        window.set_titlebar(header)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10,
+                      margin_start=18, margin_end=18,
+                      margin_top=16, margin_bottom=16)
+        entry = Gtk.Entry()
+        entry.set_text(getattr(row, "chat_title", "") or "")
+        entry.select_region(0, -1)
+        box.append(entry)
+        buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        spacer = Gtk.Box()
+        spacer.set_hexpand(True)
+        buttons.append(spacer)
+        cancel = Gtk.Button(label="取消")
+        cancel.connect("clicked", lambda *_: window.close())
+        buttons.append(cancel)
+        save = Gtk.Button(label="保存")
+        save.add_css_class("suggested-action")
+        buttons.append(save)
+        box.append(buttons)
+        window.set_child(box)
+
+        def do_save(*_args):
+            title = entry.get_text().strip()
+            if not title:
+                return
+            window.close()
+            self.status_label.set_text("正在重命名…")
+
+            def work():
+                try:
+                    self.api.rename_chat(str(row.chat_id), title)
+                except Exception as exc:
+                    GLib.idle_add(self._chat_action_failed, "重命名", str(exc))
+                    return
+                GLib.idle_add(self._rename_chat_done, row, title)
+
+            threading.Thread(target=work, daemon=True).start()
+
+        save.connect("clicked", do_save)
+        entry.connect("activate", do_save)
+        window.present()
+        entry.grab_focus()
+
+    def _rename_chat_done(self, row, title):
+        row.chat_title = title
+        label = getattr(row, "title_label", None)
+        if label is not None:
+            label.set_text(title)
+        self.status_label.set_text("已重命名")
+        return False
+
+    def _toggle_pin_chat(self, row):
+        if self.demo or self.api is None or not getattr(row, "chat_id", None):
+            self.status_label.set_text("演示模式不支持置顶")
+            return
+        target = not getattr(row, "pinned", False)
+        self.status_label.set_text("正在更新置顶…")
+
+        def work():
+            try:
+                self.api.set_chat_pinned(str(row.chat_id), target)
+            except Exception as exc:
+                GLib.idle_add(self._chat_action_failed,
+                              "置顶" if target else "取消置顶", str(exc))
+                return
+            GLib.idle_add(self._pin_chat_done, row, target)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _pin_chat_done(self, row, pinned):
+        row.pinned = pinned
+        self.status_label.set_text("已置顶" if pinned else "已取消置顶")
+        self.load_chats(reset=True)
+        return False
+
+    def _share_chat_row(self, row):
+        if self.demo or self.api is None or not getattr(row, "chat_id", None):
+            self.status_label.set_text("演示模式不支持分享")
+            return
+        if self._sharing:
+            return
+        self._sharing = True
+        chat_id = str(row.chat_id)
+        self.status_label.set_text("正在创建分享链接…")
+
+        def work():
+            try:
+                url = self.api.share_chat(chat_id)
+            except Exception as exc:
+                GLib.idle_add(self._share_failed, str(exc))
+            else:
+                GLib.idle_add(self._share_ready, url)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _chat_action_failed(self, action, message):
+        print(f"{action}失败: {message}", file=sys.stderr, flush=True)
+        self.status_label.set_text(f"{action}失败：" + message[:80])
+        self.status_label.set_tooltip_text(message)
+        return False
+
     def _on_chat_activated(self, _listbox, row):
         if row is None:
+            return
+        if getattr(self, "chat_select_mode", False):
+            check = getattr(row, "check", None)
+            if check is not None and getattr(row, "chat_id", None):
+                check.set_active(not check.get_active())
             return
         session_id = getattr(row, "session_id", None) or getattr(row, "chat_id", None)
         if not session_id:
@@ -3544,6 +4303,11 @@ class MainWindow(Gtk.ApplicationWindow):
     def new_chat(self):
         self.chat_id = None
         self.last_message_id = None
+        self._pending_title_fetching = False
+        self._pending_title_tries = 0
+        self._drop_pending_chat_row()
+        self.thinking_toggle.set_active(True)
+        self.search_toggle.set_active(True)
         self._clear_attachments()
         self._clear_messages()
         self.status_label.set_text("")
@@ -3649,17 +4413,115 @@ class MainWindow(Gtk.ApplicationWindow):
             self._sharing_image = False
             self.status_label.set_text("长图已生成")
             self._share_image_data = data
-            self._open_long_image_save(data)
+            self._open_long_image_preview(data)
         except Exception as exc:
             print(f"生成长图失败: {exc}", file=sys.stderr, flush=True)
             self._sharing_image = False
             self.status_label.set_text("生成长图失败：" + str(exc)[:80])
             self.status_label.set_tooltip_text(str(exc))
 
-    def _open_long_image_save(self, data):
+    def _open_long_image_preview(self, data):
+        old = getattr(self, "_preview_window", None)
+        if old is not None:
+            try:
+                old.close()
+            except Exception:
+                pass
+
+        window = Gtk.Window(transient_for=self, modal=True,
+                            title="长图预览")
+        window.set_default_size(660, 760)
+        header = Gtk.HeaderBar()
+        header.set_show_title_buttons(True)
+        window.set_titlebar(header)
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        window.set_child(outer)
+
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scrolled.set_vexpand(True)
+        try:
+            texture = Gdk.Texture.new_from_bytes(GLib.Bytes.new(data))
+            preview_width = 560
+            preview_height = max(
+                1, round(texture.get_height() * preview_width / texture.get_width()))
+            picture = Gtk.Picture.new_for_paintable(texture)
+            picture.set_size_request(preview_width, preview_height)
+            picture.set_halign(Gtk.Align.CENTER)
+            picture.set_margin_top(12)
+            picture.set_margin_bottom(12)
+            scrolled.set_child(picture)
+        except Exception as exc:
+            scrolled.set_child(Gtk.Label(
+                label="预览失败：" + str(exc)[:120], wrap=True))
+        outer.append(scrolled)
+
+        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8,
+                          margin_start=16, margin_end=16,
+                          margin_top=10, margin_bottom=12)
+        spacer = Gtk.Box()
+        spacer.set_hexpand(True)
+        actions.append(spacer)
+        copy = Gtk.Button(label="复制")
+        copy.set_tooltip_text("复制长图到剪贴板")
+        actions.append(copy)
+        save = Gtk.Button(label="保存")
+        save.add_css_class("suggested-action")
+        save.set_tooltip_text("保存长图为 JPG")
+        actions.append(save)
+        outer.append(actions)
+
+        def restore_copy():
+            try:
+                if copy.get_root() is not None:
+                    copy.set_label("复制")
+            except Exception:
+                pass
+            return False
+
+        def do_copy(_button):
+            try:
+                pixbuf = GdkPixbuf.Pixbuf.new_from_stream(
+                    Gio.MemoryInputStream.new_from_bytes(
+                        GLib.Bytes.new(data)), None)
+                ok, png = pixbuf.save_to_bufferv("png", [], [])
+                if not ok:
+                    raise RuntimeError("PNG 编码失败")
+                provider = Gdk.ContentProvider.new_for_bytes(
+                    "image/png", GLib.Bytes.new(bytes(png)))
+                clipboard = window.get_clipboard()
+                clipboard.set_content(provider)
+                if not clipboard.is_local():
+                    raise RuntimeError("剪贴板未接管")
+                copy.set_label("已复制")
+                self.status_label.set_text("长图已复制到剪贴板")
+                GLib.timeout_add(1400, restore_copy)
+            except Exception as exc:
+                print(f"复制长图失败: {exc}", file=sys.stderr, flush=True)
+                copy.set_label("复制失败")
+                GLib.timeout_add(1400, restore_copy)
+
+        copy.connect("clicked", do_copy)
+        save.connect("clicked", lambda *_: self._open_long_image_save(
+            data, parent=window))
+        window.connect("destroy", lambda *_: setattr(self, "_preview_window", None))
+        self._preview_window = window
+        window.present()
+
+    def _open_long_image_save(self, data, parent=None):
+        directory = effective_long_image_dir(self.settings)
+        filename = long_image_filename(self.chat_id)
+        try:
+            os.makedirs(directory, exist_ok=True)
+        except OSError:
+            pass
         dialog = Gtk.FileDialog()
         dialog.set_title("保存对话长图")
-        dialog.set_initial_name("deepseek-conversation.jpg")
+        dialog.set_initial_name(filename)
+        try:
+            dialog.set_initial_folder(Gio.File.new_for_path(directory))
+        except Exception:
+            pass
 
         def save_done(dlg, result):
             try:
@@ -3671,17 +4533,48 @@ class MainWindow(Gtk.ApplicationWindow):
                 file.replace_contents(
                     data, None, False,
                     Gio.FileCreateFlags.REPLACE_DESTINATION, None)
+                path = file.get_path() or file.get_uri()
                 self.status_label.set_text("长图已保存")
+                self.status_label.set_tooltip_text(path)
             except Exception as exc:
                 print(f"保存长图失败: {exc}", file=sys.stderr, flush=True)
                 self.status_label.set_text("保存长图失败：" + str(exc)[:80])
                 self.status_label.set_tooltip_text(str(exc))
 
         try:
-            dialog.save(self, None, save_done)
+            dialog.save(parent or self, None, save_done)
         except Exception as exc:
             self.status_label.set_text("保存长图失败：" + str(exc)[:80])
 
+    def _choose_long_image_dir(self, _button=None):
+        dialog = Gtk.FileDialog()
+        dialog.set_title("选择长图保存目录")
+        try:
+            dialog.set_initial_folder(
+                Gio.File.new_for_path(effective_long_image_dir(self.settings)))
+        except Exception:
+            pass
+        parent = self._settings_window or self
+
+        def done(dlg, result):
+            try:
+                folder = dlg.select_folder_finish(result)
+            except GLib.Error:
+                return
+            path = folder.get_path() if folder is not None else None
+            if not path:
+                return
+            self.settings["long_image_dir"] = path
+            save_settings(self.settings)
+            label = getattr(self, "_long_image_dir_label", None)
+            if label is not None:
+                label.set_text(path)
+                label.set_tooltip_text(path)
+
+        try:
+            dialog.select_folder(parent, None, done)
+        except Exception as exc:
+            self.status_label.set_text("选择目录失败：" + str(exc)[:80])
 
     def _share_chat(self, _view=None):
         if self._sharing:
@@ -3818,12 +4711,12 @@ class MainWindow(Gtk.ApplicationWindow):
                       margin_top=22, margin_bottom=28,
                       halign=Gtk.Align.CENTER)
         try:
-            pixbuf = GdkPixbuf.Pixbuf.new_from_file(os.path.join(
+            icon_path = os.path.join(
                 os.path.dirname(os.path.abspath(__file__)),
-                "assets", "app-icon.png"))
-            pixbuf = pixbuf.scale_simple(120, 120, GdkPixbuf.InterpType.BILINEAR)
-            icon = Gtk.Image.new_from_pixbuf(pixbuf)
-            icon.set_pixel_size(120)
+                "assets", "app-icon.png")
+            texture = Gdk.Texture.new_from_filename(icon_path)
+            icon = Gtk.Picture.new_for_paintable(texture)
+            icon.set_can_shrink(True)
             icon.set_size_request(120, 120)
             box.append(icon)
         except Exception:
@@ -4055,6 +4948,8 @@ class MainWindow(Gtk.ApplicationWindow):
         display = text
         if file_names:
             display = (display + "\n\n📎 " + "、".join(file_names)).strip()
+        if not self.chat_id and not self.demo:
+            self._insert_pending_chat_row()
         self._append_message("user", display)
         self._clear_attachments()
         self.current_assistant = self._append_message("assistant", "")
@@ -4365,6 +5260,9 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _set_chat_id(self, sid):
         self.chat_id = sid
+        row = self._pending_chat_row
+        if row is not None:
+            row.chat_id = sid
         return False
 
     def _set_last_message_id(self, mid):
@@ -4424,6 +5322,8 @@ class MainWindow(Gtk.ApplicationWindow):
                     pass
         if not self.stream_error:
             self.status_label.set_text("完成")
+            if self._pending_chat_row is not None:
+                GLib.timeout_add(600, self._load_pending_chat_title)
         if (self.chat_id and not self.demo
                 and any(v.role == "user" and not isinstance(v.meta.get("id"), int)
                         for v in self.message_views)):

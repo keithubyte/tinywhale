@@ -267,14 +267,18 @@ def parse_sse(lines: Iterator[bytes]):
             if not isinstance(frag, dict):
                 continue
             kind = frag.get("type") or "RESPONSE"
+            kind_upper = str(kind).upper()
             frag_types.append(kind)
-            if str(kind).upper() in ("TOOL_SEARCH", "SEARCH"):
+            if kind_upper in ("TOOL_SEARCH", "SEARCH"):
                 for result in frag.get("results") or []:
                     if isinstance(result, dict):
                         sources.append(_normalize_source(result, len(sources) + 1))
             content = frag.get("content")
             if isinstance(content, str) and content:
-                yield kind, content
+                # TOOL_SEARCH 的 content 是「搜索到 N 个网页」之类的进度提示，
+                # 只保留真正的回答和思考片段，避免把进度文字拼进正文。
+                if kind_upper in ("RESPONSE", "THINK"):
+                    yield kind, content
 
     def type_at(path: str) -> str:
         try:
@@ -290,7 +294,9 @@ def parse_sse(lines: Iterator[bytes]):
         elif path.endswith("fragments") and isinstance(v, list):
             yield from add_fragments(v)
         elif path.endswith("/content") and isinstance(v, str) and op in (None, "APPEND"):
-            yield type_at(path), v
+            kind = type_at(path)
+            if str(kind).upper() in ("RESPONSE", "THINK"):
+                yield kind, v
         elif path.endswith("/results") and isinstance(v, list):
             for result in v:
                 if isinstance(result, dict):
@@ -598,6 +604,24 @@ class DeepSeekAPI:
     def list_chats(self, count: int = 30) -> list[dict]:
         sessions, _has_more, _cursor = self.list_chats_page(count)
         return sessions
+
+    def rename_chat(self, chat_session_id: str, title: str) -> dict:
+        return self._json(
+            "POST", "/api/v0/chat_session/update_title",
+            body={"chat_session_id": chat_session_id, "title": title},
+        )
+
+    def set_chat_pinned(self, chat_session_id: str, pinned: bool) -> dict:
+        return self._json(
+            "POST", "/api/v0/chat_session/update_pinned",
+            body={"chat_session_id": chat_session_id, "pinned": bool(pinned)},
+        )
+
+    def delete_chat(self, chat_session_id: str) -> dict:
+        return self._json(
+            "POST", "/api/v0/chat_session/delete",
+            body={"chat_session_id": chat_session_id},
+        )
 
     def check(self) -> int:
         """轻量健康检查：返回会话数，失败时抛异常。"""
