@@ -423,6 +423,11 @@ paned > separator { background: transparent; min-width: 0; min-height: 0; box-sh
     padding: 8px 12px;
     color: alpha(@theme_fg_color, 0.82);
 }
+.msg-thinking {
+    font-size: 0.9em;
+    color: alpha(@theme_fg_color, 0.55);
+    margin: 2px 0;
+}
 .msg-reasoning {
     background: transparent;
     padding: 1px 0;
@@ -1852,13 +1857,10 @@ class MessageView(Gtk.Box):
         self.role_label.set_visible(False)
         self.bubble.append(self.role_label)
 
-        self.reasoning = Gtk.Expander(label="已思考")
-        self.reasoning.add_css_class("msg-reasoning")
-        self.reasoning.set_visible(False)
-        self.reasoning_body = Gtk.Label(xalign=0, wrap=True, selectable=True)
-        self.reasoning_body.add_css_class("msg-body")
-        self.reasoning.set_child(self.reasoning_body)
-        self.bubble.append(self.reasoning)
+        self.thinking = Gtk.Label(label="正在思考…", xalign=0)
+        self.thinking.add_css_class("msg-thinking")
+        self.thinking.set_visible(False)
+        self.bubble.append(self.thinking)
 
         self.body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self.body.add_css_class("msg-body")
@@ -1922,7 +1924,8 @@ class MessageView(Gtk.Box):
             self.append(self.actions)
 
     def set_content(self, text: str, reasoning: str | None = None,
-                    sources: list[dict] | None = None) -> None:
+                    sources: list[dict] | None = None,
+                    thinking: bool = False) -> None:
         self._text = text or ""
         if reasoning is not None:
             self._reasoning = reasoning or ""
@@ -1933,11 +1936,10 @@ class MessageView(Gtk.Box):
             self.body.remove(self.body.get_first_child())
         for widget in markdown_widgets(self._text, self.sources):
             self.body.append(widget)
-        if self._reasoning.strip():
-            self.reasoning_body.set_text(self._reasoning)
-            self.reasoning.set_visible(True)
-        else:
-            self.reasoning.set_visible(False)
+        self.thinking.set_visible(bool(thinking and not self._text.strip()))
+
+    def set_thinking(self, thinking: bool) -> None:
+        self.thinking.set_visible(bool(thinking and not self._text.strip()))
 
     def refresh_content(self) -> None:
         self.set_content(self.meta.get("text", ""),
@@ -4372,8 +4374,10 @@ class MainWindow(Gtk.ApplicationWindow):
     def _on_delta(self, text, is_think):
         if is_think:
             self.stream_reasoning += text
+            self.status_label.set_text("正在思考…")
         else:
             self.stream_text += text
+            self.status_label.set_text("正在生成…")
         self._queue_render()
         return False
 
@@ -4386,8 +4390,11 @@ class MainWindow(Gtk.ApplicationWindow):
     def _flush_render(self):
         self.render_scheduled = False
         if self.current_assistant is not None:
-            self.current_assistant.set_content(self.stream_text, self.stream_reasoning,
-                                                self.stream_sources)
+            self.current_assistant.set_content(
+                self.stream_text, self.stream_reasoning,
+                self.stream_sources,
+                thinking=(self.streaming and bool(self.stream_reasoning.strip())
+                          and not self.stream_text.strip()))
             self.current_assistant.meta["text"] = self.stream_text
             self.current_assistant.meta["reasoning"] = self.stream_reasoning
             self._scroll_bottom()
