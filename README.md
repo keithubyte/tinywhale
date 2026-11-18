@@ -27,7 +27,7 @@
 
 GitHub Releases 提供 Linux x86_64 AppImage：
 
-- https://github.com/keithubyte/tinywhale/releases/tag/v1.1.0
+- https://github.com/keithubyte/tinywhale/releases/tag/v1.2.0
 
 ## 直接运行（免安装）
 

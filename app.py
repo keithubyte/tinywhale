@@ -17,12 +17,15 @@ import html
 import json
 import os
 import re
+import shlex
 import sys
 import tempfile
 import threading
 import time
+import urllib.parse
 import urllib.request
 import uuid
+import warnings
 from datetime import datetime
 
 try:
@@ -45,7 +48,7 @@ except (ImportError, ValueError) as exc:  # pragma: no cover
 
 from api import (  # noqa: E402
     ApiError, AuthError, DeepSeekAPI, Session, USER_AGENT,
-    parse_sse, pow_header, solve_pow_python,
+    parse_sse, pow_header, solve_pow_python, file_url,
 )
 from mathrender import math_widget  # noqa: E402
 from mathjax_render import math_widget as mathjax_math_widget  # noqa: E402
@@ -53,7 +56,7 @@ import share_image  # noqa: E402
 
 APP_NAME = "TinyWhale"
 APP_NAME_CN = "小鲸鱼"
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 BASE_URL = "https://chat.deepseek.com"
 CONFIG_DIR = os.environ.get("DSD_CONFIG_DIR") or os.path.join(
     GLib.get_user_config_dir(), "deepseek-native")
@@ -75,6 +78,14 @@ POW_WORKER = os.path.join(VENDOR_DIR, "pow_worker.js")
 
 DEFAULT_MODEL_TYPE = "default"
 THEME_MODES = ("system", "light", "dark")
+GOOGLE_MOD_MASK = int(
+    Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK
+    | Gdk.ModifierType.ALT_MASK | Gdk.ModifierType.SUPER_MASK)
+DEFAULT_GOOGLE_SHORTCUT = {
+    "keyval": int(Gdk.KEY_g),
+    "mods": int(Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK),
+    "label": "Ctrl+Shift+G",
+}
 
 APP_CSS = """
 @define-color accent_color #4D6BFE;
@@ -188,7 +199,8 @@ button.icon-button:hover { background: alpha(@theme_fg_color, 0.09); }
     box-shadow: inset 3px 0 0 #4D6BFE;
     color: @theme_fg_color;
 }
-.chat-list row:selected label { color: @theme_fg_color; }
+.chat-list row:selected .chat-title,
+.chat-list row:selected .chat-preview { color: @theme_fg_color; }
 .chat-title { font-weight: 600; font-size: 0.95em; }
 .chat-preview { font-size: 0.8em; color: alpha(@theme_fg_color, 0.50); }
 menubutton.chat-more > button {
@@ -234,7 +246,9 @@ menubutton.chat-more > button:hover {
     box-shadow: none;
 }
 .chat-menu-delete-icon,
-.chat-menu-delete-label {
+.chat-menu-delete-label,
+.chat-menu-item.chat-menu-delete image,
+.chat-menu-item.chat-menu-delete label {
     color: #E5484D;
 }
 .confirm-dialog {
@@ -577,6 +591,60 @@ paned > separator { background: transparent; min-width: 0; min-height: 0; box-sh
 }
 .md-footnote-title { font-size: 0.82em; font-weight: 700; color: alpha(@theme_fg_color, 0.55); margin-top: 6px; }
 .md-image { border-radius: 10px; }
+.msg-image-row { margin: 2px 0 6px 0; }
+.message-jump-title {
+    font-size: 0.8em;
+    color: alpha(@theme_fg_color, 0.50);
+    padding: 2px 8px 5px 8px;
+}
+.message-jump-item {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 8px;
+    padding: 7px 8px;
+}
+.message-jump-item:hover { background: alpha(@theme_fg_color, 0.07); }
+.message-jump-highlight {
+    background: alpha(#4D6BFE, 0.18);
+    box-shadow: inset 3px 0 0 #4D6BFE;
+}
+.msg-thumb {
+    border-radius: 12px;
+    background: alpha(@theme_fg_color, 0.06);
+    min-width: 144px;
+    min-height: 110px;
+}
+.image-viewer-bar {
+    background: alpha(@theme_bg_color, 0.90);
+    border: 1px solid alpha(@theme_fg_color, 0.12);
+    border-radius: 18px;
+    box-shadow: 0 12px 34px alpha(black, 0.22);
+    padding: 6px 10px;
+}
+.image-viewer-count {
+    font-size: 0.86em;
+    color: alpha(@theme_fg_color, 0.60);
+    padding: 0 4px;
+}
+.image-viewer-bar button.chat-action {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 8px;
+    min-width: 34px;
+    min-height: 30px;
+    padding: 0;
+}
+.image-viewer-bar button.chat-action:hover {
+    background: alpha(@theme_fg_color, 0.08);
+}
+.image-viewer-bar button.image-viewer-save {
+    color: #4D6BFE;
+}
+.image-viewer-bar button.image-viewer-save:hover {
+    background: alpha(#4D6BFE, 0.10);
+}
 .md-image-caption { font-size: 0.78em; color: alpha(@theme_fg_color, 0.5); }
 .task-done { opacity: 0.55; }
 .md-table-card {
@@ -857,6 +925,7 @@ def load_settings() -> dict:
         "theme": "system",
         "fonts": normalize_fonts(None),
         "long_image_dir": "",
+        "google_shortcut": dict(DEFAULT_GOOGLE_SHORTCUT),
     }
     try:
         with open(SETTINGS_FILE, "r", encoding="utf-8") as fh:
@@ -868,6 +937,20 @@ def load_settings() -> dict:
             directory = saved.get("long_image_dir")
             if isinstance(directory, str):
                 settings["long_image_dir"] = directory.strip()[:1024]
+            shortcut = saved.get("google_shortcut")
+            if isinstance(shortcut, dict):
+                try:
+                    keyval = int(shortcut.get("keyval"))
+                    mods = int(shortcut.get("mods")) & GOOGLE_MOD_MASK
+                    label = str(shortcut.get("label") or "").strip()
+                    if keyval > 0 and mods:
+                        settings["google_shortcut"] = {
+                            "keyval": keyval,
+                            "mods": mods,
+                            "label": label or Gtk.accelerator_get_label(keyval, mods),
+                        }
+                except (TypeError, ValueError):
+                    pass
     except (OSError, ValueError):
         pass
     return settings
@@ -1365,6 +1448,105 @@ def open_link(_label, uri: str) -> bool:
     return True
 
 
+def label_selected_text(label) -> str:
+    try:
+        bounds = label.get_selection_bounds()
+        if not bounds:
+            return ""
+        start = getattr(bounds, "start", None)
+        end = getattr(bounds, "end", None)
+        if start is None:
+            if len(bounds) >= 3:
+                start, end = bounds[1], bounds[2]
+            else:
+                start, end = bounds[0], bounds[1]
+        if not isinstance(start, int) or not isinstance(end, int):
+            return ""
+        if start < 0 or end <= start:
+            return ""
+        return label.get_text()[start:end].strip()
+    except Exception:
+        return ""
+
+
+def has_text_selection(widget) -> bool:
+    if isinstance(widget, Gtk.Label) and widget.get_selectable():
+        if label_selected_text(widget):
+            return True
+    if isinstance(widget, Gtk.TextView):
+        try:
+            if widget.get_buffer().get_has_selection():
+                return True
+        except Exception:
+            pass
+    child = widget.get_first_child()
+    while child is not None:
+        if has_text_selection(child):
+            return True
+        child = child.get_next_sibling()
+    return False
+
+
+def find_selected_label(widget):
+    if isinstance(widget, Gtk.Label) and widget.get_selectable():
+        text = label_selected_text(widget)
+        if text:
+            return widget, text
+    child = widget.get_first_child()
+    while child is not None:
+        found = find_selected_label(child)
+        if found is not None:
+            return found
+        child = child.get_next_sibling()
+    return None
+
+
+def clear_label_selections(widget):
+    if isinstance(widget, Gtk.Label) and widget.get_selectable():
+        try:
+            widget.select_region(0, 0)
+        except Exception:
+            pass
+    child = widget.get_first_child()
+    while child is not None:
+        clear_label_selections(child)
+        child = child.get_next_sibling()
+
+
+def open_in_new_browser_window(url: str) -> None:
+    """Open URL in a new browser window when the default browser supports it."""
+    try:
+        app_info = Gio.AppInfo.get_default_for_uri_scheme("https")
+    except Exception:
+        app_info = None
+    if app_info is not None:
+        executable = (app_info.get_executable() or "").strip()
+        name = (app_info.get_name() or "").lower()
+        probe = (executable + " " + name).lower()
+        args = None
+        supports_window = ("firefox" in probe or any(
+            key in probe for key in ("chrom", "brave", "edge", "vivaldi", "opera")))
+        if executable and "flatpak" in executable.lower() and supports_window:
+            # flatpak 的 app_info executable 是 flatpak 本身，需要保留 run <appid>。
+            try:
+                command = shlex.split(app_info.get_commandline() or "")
+            except ValueError:
+                command = []
+            command = [part for part in command
+                       if part not in ("%u", "%U", "%f", "%F")]
+            if command:
+                args = command + ["--new-window", url]
+        elif supports_window and executable:
+            args = [executable, "--new-window", url]
+        if args is not None:
+            try:
+                Gio.Subprocess.new(args, Gio.SubprocessFlags.NONE)
+                return
+            except Exception:
+                pass
+    Gio.AppInfo.launch_default_for_uri(url, None)
+
+
 _CODE_KEYWORDS = {
     "python": ("def", "class", "return", "if", "elif", "else", "for", "while",
                "in", "not", "and", "or", "is", "None", "True", "False", "import",
@@ -1667,6 +1849,7 @@ def table_widget(body: str, source_urls, refs=None, footnotes=None) -> Gtk.Widge
         elif row_index % 2 == 0:
             label.add_css_class("md-row-alt")
         label.connect("activate-link", open_link)
+        attach_google_menu(label)
         grid.attach(label, column, row_index, 1, 1)
 
     for column in range(columns):
@@ -1732,6 +1915,282 @@ def remote_image_widget(url: str, alt: str) -> Gtk.Widget:
 
     _IMAGE_SESSION.send_and_read_async(message, GLib.PRIORITY_DEFAULT, None, finished)
     return box
+
+
+def message_image_widget(url: str, alt: str = "") -> Gtk.Widget:
+    picture = Gtk.Picture()
+    picture.add_css_class("msg-thumb")
+    picture.set_size_request(144, 110)
+    picture.set_content_fit(Gtk.ContentFit.COVER)
+    picture.set_can_shrink(True)
+    picture.set_tooltip_text("点击查看大图")
+
+    def open_viewer(*_args):
+        root = picture.get_root()
+        fallback = {"url": url, "file_name": alt or "image"}
+        images = collect_conversation_images(root, fallback)
+        start = next((i for i, item in enumerate(images)
+                      if item.get("url") == url), 0)
+        open_image_viewer(root, images, start)
+
+    click = Gtk.GestureClick()
+    click.connect("released", open_viewer)
+    picture.add_controller(click)
+    try:
+        picture.set_cursor(Gdk.Cursor.new_from_name("pointer"))
+    except Exception:
+        pass
+
+    def apply_image(data):
+        try:
+            stream = Gio.MemoryInputStream.new_from_bytes(
+                GLib.Bytes.new(data))
+            pixbuf = GdkPixbuf.Pixbuf.new_from_stream(stream, None)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", DeprecationWarning)
+                picture.set_pixbuf(pixbuf)
+        except Exception:
+            picture.set_tooltip_text((alt or "图片") + "（加载失败）")
+        return False
+
+    def work():
+        try:
+            request = urllib.request.Request(
+                url, headers={"User-Agent": USER_AGENT})
+            with urllib.request.urlopen(request, timeout=20) as response:
+                data = response.read(20 * 1024 * 1024)
+            GLib.idle_add(apply_image, data)
+        except Exception:
+            GLib.idle_add(picture.set_tooltip_text,
+                          (alt or "图片") + "（加载失败）")
+
+    threading.Thread(target=work, daemon=True).start()
+    return picture
+
+
+def collect_conversation_images(root, fallback=None):
+    result = []
+    seen = set()
+    views = getattr(root, "message_views", None) or []
+    for view in views:
+        for image in getattr(view, "_images", []):
+            url = image.get("url") or ""
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            result.append({
+                "url": url,
+                "file_name": image.get("file_name") or "image",
+            })
+    if not result and fallback:
+        result.append(fallback)
+    return result
+
+
+def open_image_viewer(parent, images, index: int = 0) -> None:
+    window = Gtk.Window(transient_for=parent if isinstance(parent, Gtk.Window) else None,
+                        modal=True, title="图片")
+    window.set_default_size(960, 760)
+    header = Gtk.HeaderBar()
+    header.set_show_title_buttons(True)
+    header_title = Gtk.Label(label="图片")
+    header_title.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
+    header_title.set_max_width_chars(60)
+    header.set_title_widget(header_title)
+    window.set_titlebar(header)
+
+    overlay = Gtk.Overlay()
+    overlay.set_hexpand(True)
+    overlay.set_vexpand(True)
+    picture = Gtk.Picture()
+    picture.set_content_fit(Gtk.ContentFit.CONTAIN)
+    picture.set_can_shrink(True)
+    picture.set_hexpand(True)
+    picture.set_vexpand(True)
+    overlay.set_child(picture)
+
+    spinner = Gtk.Spinner()
+    spinner.set_halign(Gtk.Align.CENTER)
+    spinner.set_valign(Gtk.Align.CENTER)
+    spinner.start()
+    overlay.add_overlay(spinner)
+
+    status = Gtk.Label(label="")
+    status.add_css_class("md-image-caption")
+    status.set_halign(Gtk.Align.CENTER)
+    status.set_valign(Gtk.Align.CENTER)
+    overlay.add_overlay(status)
+
+    bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+    bar.add_css_class("image-viewer-bar")
+    bar.set_halign(Gtk.Align.CENTER)
+    bar.set_valign(Gtk.Align.END)
+    bar.set_margin_bottom(24)
+    bar.set_margin_start(16)
+    bar.set_margin_end(16)
+
+    prev_button = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+    prev_button.add_css_class("chat-action")
+    prev_button.set_tooltip_text("上一张")
+    bar.append(prev_button)
+
+    counter = Gtk.Label(label="")
+    counter.add_css_class("image-viewer-count")
+    bar.append(counter)
+
+    next_button = Gtk.Button.new_from_icon_name("go-next-symbolic")
+    next_button.add_css_class("chat-action")
+    next_button.set_tooltip_text("下一张")
+    bar.append(next_button)
+
+    save_button = Gtk.Button.new_from_icon_name("document-save-symbolic")
+    save_button.add_css_class("chat-action")
+    save_button.add_css_class("image-viewer-save")
+    save_button.set_tooltip_text("另存为")
+    save_button.set_margin_start(6)
+    bar.append(save_button)
+    overlay.add_overlay(bar)
+    window.set_child(overlay)
+
+    state = {"index": max(0, min(index, len(images) - 1)), "data": None, "token": 0}
+    cache = {}
+
+    def image_name(item):
+        name = (item.get("file_name") or "").strip()
+        if not name:
+            path = urllib.parse.urlparse(item.get("url") or "").path
+            name = os.path.basename(path) or "image"
+        return name
+
+    def update_controls():
+        state_index = state["index"]
+        counter.set_text(f"{state_index + 1} / {len(images)}")
+        header_title.set_text(image_name(images[state_index]))
+        prev_button.set_sensitive(state_index > 0)
+        next_button.set_sensitive(state_index < len(images) - 1)
+        save_button.set_sensitive(state["data"] is not None)
+
+    def apply_image(data, token):
+        if token != state["token"]:
+            return False
+        try:
+            stream = Gio.MemoryInputStream.new_from_bytes(GLib.Bytes.new(data))
+            pixbuf = GdkPixbuf.Pixbuf.new_from_stream(stream, None)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", DeprecationWarning)
+                picture.set_pixbuf(pixbuf)
+            state["data"] = data
+            cache[images[state["index"]]["url"]] = data
+            spinner.stop()
+            spinner.set_visible(False)
+            status.set_text("")
+            update_controls()
+        except Exception:
+            status.set_text("图片加载失败")
+            spinner.stop()
+            spinner.set_visible(False)
+        return False
+
+    def load_current():
+        if not images:
+            return
+        state["index"] = max(0, min(state["index"], len(images) - 1))
+        item = images[state["index"]]
+        url = item.get("url") or ""
+        state["data"] = None
+        state["token"] += 1
+        token = state["token"]
+        picture.set_paintable(None)
+        spinner.set_visible(True)
+        spinner.start()
+        status.set_text("正在加载图片…")
+        update_controls()
+        if url in cache:
+            GLib.idle_add(apply_image, cache[url], token)
+            return
+
+        def work():
+            try:
+                request = urllib.request.Request(
+                    url, headers={"User-Agent": USER_AGENT})
+                with urllib.request.urlopen(request, timeout=30) as response:
+                    data = response.read(40 * 1024 * 1024)
+                GLib.idle_add(apply_image, data, token)
+            except Exception:
+                GLib.idle_add(_image_failed, token)
+            return False
+
+        def _image_failed(failed_token):
+            if failed_token == state["token"]:
+                spinner.stop()
+                spinner.set_visible(False)
+                status.set_text("图片加载失败")
+            return False
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def go(delta):
+        state["index"] += delta
+        load_current()
+
+    def save_as(*_args):
+        data = state["data"]
+        if not data:
+            return
+        dialog = Gtk.FileDialog()
+        dialog.set_title("图片另存为")
+        dialog.set_initial_name(image_name(images[state["index"]]))
+        pictures = None
+        try:
+            pictures = GLib.get_user_special_dir(
+                GLib.UserDirectory.DIRECTORY_PICTURES)
+        except Exception:
+            pictures = None
+        if pictures:
+            try:
+                dialog.set_initial_folder(Gio.File.new_for_path(pictures))
+            except Exception:
+                pass
+
+        def done(dlg, result):
+            try:
+                file = dlg.save_finish(result)
+            except GLib.Error:
+                return
+            try:
+                file.replace_contents(
+                    data, None, False,
+                    Gio.FileCreateFlags.REPLACE_DESTINATION, None)
+                status.set_text("已保存")
+                GLib.timeout_add(1200, lambda: (
+                    status.set_text(""), False)[1])
+            except Exception as exc:
+                status.set_text("保存失败：" + str(exc)[:60])
+
+        dialog.save(window, None, done)
+
+    prev_button.connect("clicked", lambda *_: go(-1))
+    next_button.connect("clicked", lambda *_: go(1))
+    save_button.connect("clicked", save_as)
+
+    def on_key(_controller, keyval, _keycode, mods):
+        if keyval == Gdk.KEY_Left:
+            go(-1)
+            return True
+        if keyval == Gdk.KEY_Right:
+            go(1)
+            return True
+        if keyval == Gdk.KEY_s and (mods & Gdk.ModifierType.CONTROL_MASK):
+            save_as()
+            return True
+        return False
+
+    key = Gtk.EventControllerKey()
+    key.connect("key-pressed", on_key)
+    window.add_controller(key)
+    window.present()
+    load_current()
+    return window
 
 
 def extract_definitions(text: str):
@@ -1819,6 +2278,92 @@ class FadePopover(Gtk.Popover):
         self._fade_to(0.0, lambda: Gtk.Popover.popdown(self))
 
 
+def attach_google_menu(label):
+    """Add a right-click Google search action for selected label text."""
+    if getattr(label, "_google_menu_attached", False):
+        return
+    label._google_menu_attached = True
+    gesture = Gtk.GestureClick()
+    gesture.set_button(3)
+
+    def clear_selection():
+        try:
+            label.select_region(0, 0)
+        except Exception:
+            pass
+
+    def pressed(_gesture, _n_press, x, y):
+        text = label_selected_text(label)
+        if not text:
+            return
+        if _gesture is not None:
+            _gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+        popover = FadePopover()
+        popover.add_css_class("chat-menu-popover")
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2,
+                      margin_start=5, margin_end=5,
+                      margin_top=5, margin_bottom=5)
+        box.add_css_class("chat-menu-box")
+        box.set_size_request(126, -1)
+
+        def menu_item(icon_name, title, callback):
+            button = Gtk.Button()
+            button.set_can_focus(False)
+            button.add_css_class("chat-menu-item")
+            content = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=9)
+            icon = Gtk.Image.new_from_icon_name(icon_name)
+            icon.set_pixel_size(16)
+            content.append(icon)
+            text_label = Gtk.Label(label=title, xalign=0)
+            text_label.set_hexpand(True)
+            content.append(text_label)
+            button.set_child(content)
+            button.connect("clicked", callback)
+            box.append(button)
+            return text_label
+
+        def copy_text(*_args):
+            ok = False
+            try:
+                provider = Gdk.ContentProvider.new_for_bytes(
+                    "text/plain;charset=utf-8",
+                    GLib.Bytes.new(text.encode("utf-8")))
+                clipboard = label.get_clipboard()
+                clipboard.set_content(provider)
+                ok = clipboard.is_local()
+            except Exception as exc:
+                print(f"复制选中文本失败: {exc}", file=sys.stderr, flush=True)
+            copy_label.set_text("已复制" if ok else "复制失败")
+            GLib.timeout_add(450, popover.popdown)
+
+        def search(*_args):
+            popover.popdown()
+            url = "https://www.google.com/search?q=" + urllib.parse.quote_plus(text[:2000])
+            try:
+                open_in_new_browser_window(url)
+            except Exception as exc:
+                print(f"打开浏览器失败: {exc}", file=sys.stderr, flush=True)
+
+        copy_label = menu_item("edit-copy-symbolic", "复制", copy_text)
+        menu_item("system-search-symbolic", "Google it", search)
+        def clear_after_close(*_args):
+            # 等 popover 真正消失、焦点回到标签之后再清空，避免 GTK 把整行画成选中。
+            GLib.idle_add(clear_selection)
+        popover.connect("closed", clear_after_close)
+        popover.set_child(box)
+        popover.set_parent(label)
+        popover.set_has_arrow(True)
+        rect = Gdk.Rectangle()
+        rect.x, rect.y = int(x), int(y)
+        rect.width = rect.height = 1
+        popover.set_pointing_to(rect)
+        popover.popup()
+
+    gesture.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+    gesture.connect("pressed", pressed)
+    label.add_controller(gesture)
+
+
 def markdown_widgets(text: str, sources=None, refs=None, footnotes=None,
                      footnote_order=None, _nested: bool = False) -> list[Gtk.Widget]:
     if refs is None and footnotes is None:
@@ -1842,6 +2387,7 @@ def markdown_widgets(text: str, sources=None, refs=None, footnotes=None,
             label.set_wrap(True)
             label.set_selectable(True)
             label.add_css_class(kind)
+            attach_google_menu(label)
             widgets.append(label)
         elif kind == "quote":
             box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -1908,6 +2454,7 @@ def markdown_widgets(text: str, sources=None, refs=None, footnotes=None,
                 label.connect("activate-link", open_link)
                 if task is True:
                     label.add_css_class("task-done")
+                attach_google_menu(label)
                 content_box.append(label)
 
                 rest = item["rest"]
@@ -1961,6 +2508,7 @@ def markdown_widgets(text: str, sources=None, refs=None, footnotes=None,
             label.set_selectable(True)
             label.add_css_class("md-p")
             label.connect("activate-link", open_link)
+            attach_google_menu(label)
             widgets.append(label)
 
     if not _nested and footnote_order:
@@ -1980,6 +2528,7 @@ def markdown_widgets(text: str, sources=None, refs=None, footnotes=None,
             label.set_selectable(True)
             label.add_css_class("md-footnote")
             label.connect("activate-link", open_link)
+            attach_google_menu(label)
             widgets.append(label)
     return widgets
 
@@ -2039,6 +2588,11 @@ class MessageView(Gtk.Box):
         self.add_css_class("msg")
         self.add_css_class(f"msg-{role}")
 
+        self.images_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.images_box.add_css_class("msg-image-row")
+        self.images_box.set_halign(Gtk.Align.END)
+        self.images_box.set_visible(False)
+        self.append(self.images_box)
         self.bubble = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         self.append(self.bubble)
 
@@ -2069,6 +2623,7 @@ class MessageView(Gtk.Box):
 
         self._text = ""
         self._reasoning = ""
+        self._images: list[dict] = []
         self.meta: dict = {}
 
         self.actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
@@ -2118,10 +2673,14 @@ class MessageView(Gtk.Box):
 
     def set_content(self, text: str, reasoning: str | None = None,
                     sources: list[dict] | None = None,
-                    thinking: bool = False) -> None:
+                    thinking: bool = False,
+                    images: list[dict] | None = None) -> None:
         self._text = text or ""
         if reasoning is not None:
             self._reasoning = reasoning or ""
+        if images is not None:
+            self._images = images or []
+            self._render_images()
         if sources is not None:
             self.sources = sources
             self._render_sources()
@@ -2130,6 +2689,9 @@ class MessageView(Gtk.Box):
         for widget in markdown_widgets(self._text, self.sources):
             self.body.append(widget)
         self.thinking.set_visible(bool(thinking and not self._text.strip()))
+        # 只有图片、没有文字的发送消息不需要空气泡。
+        self.bubble.set_visible(
+            not (self.role == "user" and not self._text.strip()))
 
     def set_thinking(self, thinking: bool) -> None:
         self.thinking.set_visible(bool(thinking and not self._text.strip()))
@@ -2137,7 +2699,23 @@ class MessageView(Gtk.Box):
     def refresh_content(self) -> None:
         self.set_content(self.meta.get("text", ""),
                          self.meta.get("reasoning", ""),
-                         self.sources)
+                         self.sources,
+                         images=self.meta.get("images", []))
+
+    def _render_images(self) -> None:
+        while (child := self.images_box.get_first_child()) is not None:
+            self.images_box.remove(child)
+        self.images_box.set_visible(bool(self._images))
+        for image in self._images:
+            url = image.get("url") or ""
+            if not url:
+                path = image.get("signed_path") or ""
+                if path.startswith("/"):
+                    url = BASE_URL + path
+            if not url:
+                continue
+            self.images_box.append(
+                message_image_widget(url, image.get("file_name") or ""))
 
     def _render_sources(self) -> None:
         while (child := self.sources_box.get_first_child()) is not None:
@@ -3064,6 +3642,7 @@ class MainWindow(Gtk.ApplicationWindow):
         GLib.timeout_add_seconds(3600, self._refresh_date)
         self._install_actions()
         self._install_drop_target()
+        self._install_shortcuts()
 
     def _build_empty_page(self) -> Gtk.Widget:
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10,
@@ -3168,6 +3747,136 @@ class MainWindow(Gtk.ApplicationWindow):
             return True
         return False
 
+    def _install_shortcuts(self):
+        controller = Gtk.EventControllerKey()
+        controller.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        controller.connect("key-pressed", self._on_global_key)
+        self.add_controller(controller)
+
+        click = Gtk.GestureClick()
+        click.set_button(3)
+        click.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        click.connect("pressed", self._on_message_area_right_click)
+        self.messages_overlay.add_controller(click)
+
+    def _on_message_area_right_click(self, gesture, _n_press, x, y):
+        if has_text_selection(self.messages_overlay):
+            return
+        self._show_user_message_jump(gesture, x, y)
+
+    def _show_user_message_jump(self, gesture, x, y):
+        entries = []
+        for view in self.message_views:
+            if view.role != "user":
+                continue
+            text = " ".join((view.meta.get("text") or "").split())
+            images = view.meta.get("images") or []
+            if not text and images:
+                text = "[图片]"
+            if not text:
+                continue
+            short = text[:32] + ("…" if len(text) > 32 else "")
+            entries.append((short, text, view))
+        if not entries:
+            return
+        if gesture is not None:
+            gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+        old = getattr(self, "_jump_popover", None)
+        if old is not None:
+            try:
+                old.popdown()
+            except Exception:
+                pass
+        popover = FadePopover()
+        popover.add_css_class("chat-menu-popover")
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1,
+                      margin_start=5, margin_end=5,
+                      margin_top=5, margin_bottom=5)
+        box.add_css_class("chat-menu-box")
+        title = Gtk.Label(label="跳转到用户消息", xalign=0)
+        title.add_css_class("message-jump-title")
+        box.append(title)
+        listing = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        for short, full, target in entries:
+            button = Gtk.Button()
+            button.set_can_focus(False)
+            button.add_css_class("message-jump-item")
+            label = Gtk.Label(label=short, xalign=0)
+            label.set_ellipsize(Pango.EllipsizeMode.END)
+            label.set_width_chars(36)
+            label.set_max_width_chars(36)
+            button.set_child(label)
+            button.set_tooltip_text(full[:200])
+            button.set_halign(Gtk.Align.FILL)
+            button.connect("clicked", lambda _b, t=target, p=popover:
+                           self._jump_to_message(t, p))
+            listing.append(button)
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scrolled.set_min_content_width(500)
+        scrolled.set_max_content_height(360)
+        scrolled.set_propagate_natural_height(True)
+        scrolled.set_child(listing)
+        box.append(scrolled)
+        popover.set_child(box)
+        popover.set_parent(self.messages_overlay)
+        popover.set_has_arrow(True)
+        rect = Gdk.Rectangle()
+        rect.x, rect.y = int(x), int(y)
+        rect.width = rect.height = 1
+        popover.set_pointing_to(rect)
+        self._jump_popover = popover
+        popover.connect("closed", lambda *_: setattr(self, "_jump_popover", None))
+        popover.popup()
+
+    def _jump_to_message(self, view, popover):
+        popover.popdown()
+        def jump():
+            try:
+                ok, rect = view.compute_bounds(self.messages_box)
+                if ok:
+                    adj = self.messages_scroll.get_vadjustment()
+                    adj.set_value(max(0, rect.origin.y - 16))
+                view.bubble.add_css_class("message-jump-highlight")
+                GLib.timeout_add(900, lambda: (
+                    view.bubble.remove_css_class("message-jump-highlight"), False)[1])
+            except Exception:
+                pass
+            return False
+        GLib.timeout_add(160, jump)
+
+    def _on_global_key(self, _controller, keyval, _keycode, state):
+        shortcut = self.settings.get("google_shortcut") or DEFAULT_GOOGLE_SHORTCUT
+        try:
+            expected_key = int(shortcut.get("keyval"))
+            expected_mods = int(shortcut.get("mods")) & GOOGLE_MOD_MASK
+        except (TypeError, ValueError):
+            return False
+        if Gdk.keyval_to_lower(keyval) != Gdk.keyval_to_lower(expected_key):
+            return False
+        mods = int(state) & GOOGLE_MOD_MASK
+        if mods != expected_mods:
+            return False
+        found = find_selected_label(self)
+        if found is None:
+            return False
+        label, text = found
+        label.select_region(0, 0)
+        self._open_google_text(text)
+        return True
+
+    def _open_google_text(self, text):
+        if not text:
+            return
+        text = text[:2000]
+        self.status_label.set_text("正在打开 Google…")
+        url = "https://www.google.com/search?q=" + urllib.parse.quote_plus(text)
+        try:
+            open_in_new_browser_window(url)
+        except Exception as exc:
+            self.status_label.set_text("打开浏览器失败")
+            print(f"打开浏览器失败: {exc}", file=sys.stderr, flush=True)
+
     def _install_actions(self):
         def simple(name, handler):
             action = Gio.SimpleAction.new(name, None)
@@ -3268,6 +3977,84 @@ class MainWindow(Gtk.ApplicationWindow):
         row.append(button)
 
         return self._font_size_controls(row, category)
+
+    def _google_shortcut_row(self) -> Gtk.Widget:
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        row.add_css_class("settings-row")
+        name = Gtk.Label(label="Google 快捷键", xalign=0,
+                         valign=Gtk.Align.CENTER)
+        name.set_size_request(118, -1)
+        row.append(name)
+        shortcut = self.settings.get("google_shortcut") or DEFAULT_GOOGLE_SHORTCUT
+        value = Gtk.Label(label=shortcut.get("label") or "Ctrl+Shift+G",
+                          xalign=0, valign=Gtk.Align.CENTER)
+        value.add_css_class("settings-path")
+        value.set_hexpand(True)
+        self._google_shortcut_display = value
+        row.append(value)
+        edit = Gtk.Button(label="修改…")
+        edit.set_valign(Gtk.Align.CENTER)
+        edit.connect("clicked", lambda *_: self._edit_google_shortcut())
+        row.append(edit)
+        return row
+
+    def _edit_google_shortcut(self):
+        window = Gtk.Window(transient_for=self._settings_window or self,
+                            modal=True, title="Google 快捷键")
+        window.set_resizable(False)
+        window.set_default_size(380, 170)
+        header = Gtk.HeaderBar()
+        header.set_show_title_buttons(True)
+        window.set_titlebar(header)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10,
+                      margin_start=20, margin_end=20,
+                      margin_top=18, margin_bottom=16)
+        title = Gtk.Label(label="按下新的快捷键组合", xalign=0)
+        title.add_css_class("settings-section-title")
+        box.append(title)
+        hint = Gtk.Label(label="需要包含 Ctrl、Alt 或 Super，Esc 取消。",
+                         xalign=0, wrap=True)
+        hint.add_css_class("settings-hint")
+        box.append(hint)
+        window.set_child(box)
+
+        def pressed(_controller, keyval, _keycode, state):
+            if keyval == Gdk.KEY_Escape:
+                window.close()
+                return True
+            if keyval in (Gdk.KEY_Control_L, Gdk.KEY_Control_R,
+                          Gdk.KEY_Shift_L, Gdk.KEY_Shift_R,
+                          Gdk.KEY_Alt_L, Gdk.KEY_Alt_R,
+                          Gdk.KEY_Super_L, Gdk.KEY_Super_R,
+                          Gdk.KEY_Meta_L, Gdk.KEY_Meta_R):
+                return True
+            mods = int(state) & GOOGLE_MOD_MASK
+            if not (mods & (Gdk.ModifierType.CONTROL_MASK
+                            | Gdk.ModifierType.ALT_MASK
+                            | Gdk.ModifierType.SUPER_MASK)):
+                hint.set_text("请同时按住 Ctrl、Alt 或 Super。")
+                return True
+            keyval = Gdk.keyval_to_lower(keyval)
+            label = Gtk.accelerator_get_label(keyval, mods)
+            if not label:
+                return True
+            self.settings["google_shortcut"] = {
+                "keyval": int(keyval),
+                "mods": int(mods),
+                "label": label,
+            }
+            save_settings(self.settings)
+            display = getattr(self, "_google_shortcut_display", None)
+            if display is not None:
+                display.set_text(label)
+            window.close()
+            return True
+
+        key = Gtk.EventControllerKey()
+        key.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        key.connect("key-pressed", pressed)
+        window.add_controller(key)
+        window.present()
 
     def _line_spacing_row(self) -> Gtk.Widget:
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
@@ -3397,6 +4184,7 @@ class MainWindow(Gtk.ApplicationWindow):
         other_section.append(other_title)
         other_section.append(self._line_spacing_row())
         other_section.append(self._long_image_dir_row())
+        other_section.append(self._google_shortcut_row())
         page.append(other_section)
 
         about_content = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -4209,7 +4997,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self.chat_stack.set_visible_child_name("empty")
 
     def _append_message(self, role, text="", reasoning="", message_id=None,
-                        parent_id=None, sources=None) -> MessageView:
+                        parent_id=None, sources=None, images=None) -> MessageView:
         callbacks = {"on_copy": self._copy_message}
         if role == "assistant":
             callbacks["on_share"] = self._share_chat
@@ -4221,8 +5009,9 @@ class MainWindow(Gtk.ApplicationWindow):
                 callbacks["on_edit"] = self._edit_message
         view = MessageView(role, **callbacks)
         view.meta = {"id": message_id, "parent_id": parent_id,
-                     "text": text or "", "reasoning": reasoning or ""}
-        view.set_content(text, reasoning, sources)
+                     "text": text or "", "reasoning": reasoning or "",
+                     "images": images or []}
+        view.set_content(text, reasoning, sources, images=images)
         view.apply_mode(self.mode)
         self.messages_box.append(view)
         self.message_views.append(view)
@@ -4938,10 +5727,20 @@ class MainWindow(Gtk.ApplicationWindow):
             return
         buf = self.input_view.get_buffer()
         text = buf.get_text(buf.get_start_iter(), buf.get_end_iter(), True).strip()
-        file_ids = [a["id"] for a in self.attachments
-                    if a["status"] == "ready" and a.get("id")]
-        file_names = [a["name"] for a in self.attachments
-                      if a["status"] == "ready"]
+        ready = [a for a in self.attachments if a["status"] == "ready"]
+        file_ids = [a["id"] for a in ready if a.get("id")]
+        file_names = [a["name"] for a in ready
+                      if not (a.get("server") or {}).get("is_image")]
+        image_files = []
+        for att in ready:
+            server = att.get("server") or {}
+            if not server.get("is_image"):
+                continue
+            entry = dict(server)
+            path = file_url(entry.get("signed_path") or entry.get("url") or "")
+            if path:
+                entry["url"] = path
+                image_files.append(entry)
         if not text and not file_ids:
             return
         buf.set_text("")
@@ -4950,7 +5749,7 @@ class MainWindow(Gtk.ApplicationWindow):
             display = (display + "\n\n📎 " + "、".join(file_names)).strip()
         if not self.chat_id and not self.demo:
             self._insert_pending_chat_row()
-        self._append_message("user", display)
+        self._append_message("user", display, images=image_files)
         self._clear_attachments()
         self.current_assistant = self._append_message("assistant", "")
         self.stream_text = ""
@@ -5398,7 +6197,8 @@ class MainWindow(Gtk.ApplicationWindow):
                                  message.get("reasoning", ""),
                                  message_id=message.get("id"),
                                  parent_id=message.get("parent_id"),
-                                 sources=message.get("sources"))
+                                 sources=message.get("sources"),
+                                 images=message.get("files"))
             if message["role"] == "assistant" and isinstance(message.get("id"), int):
                 self.last_message_id = message["id"]
         self.status_label.set_text(f"{len(messages)} 条消息")

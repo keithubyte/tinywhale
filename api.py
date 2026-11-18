@@ -26,6 +26,7 @@ from datetime import datetime
 from typing import Callable, Iterator, Optional
 
 BASE = "https://chat.deepseek.com"
+FILES_BASE = "https://files.deepseeksvc.com/api"
 USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
@@ -246,6 +247,20 @@ def extract_sources(fragments) -> list[dict]:
             if isinstance(result, dict):
                 sources.append(_normalize_source(result, len(sources) + 1))
     return sources
+
+
+def file_url(signed_path: str) -> str:
+    """Build the CDN URL used by the web client for uploaded files."""
+    path = (signed_path or "").strip()
+    if not path:
+        return ""
+    if path.startswith("http://") or path.startswith("https://"):
+        return path
+    if not path.startswith("/"):
+        path = "/" + path
+    if "ty=" not in path:
+        path += ("&" if "?" in path else "?") + "ty=p"
+    return FILES_BASE + path
 
 
 def parse_sse(lines: Iterator[bytes]):
@@ -709,13 +724,39 @@ class DeepSeekAPI:
         for item in data.get("chat_messages") or []:
             role = str(item.get("role") or "").upper()
             text_parts, think_parts = [], []
+            files = []
+            seen_files = set()
+
+            def add_file(file_obj):
+                if not isinstance(file_obj, dict):
+                    return
+                fid = file_obj.get("id")
+                if fid in seen_files:
+                    return
+                if fid:
+                    seen_files.add(fid)
+                if not file_obj.get("is_image"):
+                    return
+                entry = dict(file_obj)
+                path = file_url(entry.get("signed_path") or entry.get("url") or "")
+                if path:
+                    entry["url"] = path
+                files.append(entry)
+
             for frag in item.get("fragments") or []:
                 kind = str(frag.get("type") or "").upper()
                 content = frag.get("content") or ""
                 if kind == "THINK":
                     think_parts.append(content)
+                elif kind == "FILE":
+                    for file_obj in frag.get("files") or []:
+                        add_file(file_obj)
+                elif kind.startswith("TOOL"):
+                    continue
                 else:
                     text_parts.append(content)
+            for file_obj in item.get("files") or []:
+                add_file(file_obj)
             messages.append({
                 "id": item.get("message_id"),
                 "parent_id": item.get("parent_id"),
@@ -724,6 +765,7 @@ class DeepSeekAPI:
                 "reasoning": "".join(think_parts),
                 "model_type": item.get("model_type"),
                 "sources": extract_sources(item.get("fragments")),
+                "files": files,
             })
         return messages
 
